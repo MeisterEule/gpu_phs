@@ -342,7 +342,7 @@ __global__ void _set_msq_branch (int N, int channel, int off, int branch_idx, in
    double msq_min = 0;
    double msq_max = sqrts * sqrts;
    double this_msq = 0;
-   int gid = 2 * off + tid;
+   int gid = off + tid;
    int xtid = xc->nx * gid + xc->id_gpu[gid]++;
    double x = xc->x[xtid];
    double *a = mappings_d[channel].a[branch_idx].a;
@@ -509,7 +509,7 @@ __global__ void _create_new_boost (int N, int channel, int off, int branch_idx, 
    double bg = m > 0 ? p / m : 0;
    double gamma = sqrt (1 + bg * bg); 
    
-   int gid = 2 * off + tid;
+   int gid = off + tid;
    //if (channel == 2) {
    //   printf ("gid: %d, %d \n", gid, xc->id_gpu[gid]);
    //}
