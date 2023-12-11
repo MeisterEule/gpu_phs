@@ -806,7 +806,7 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
    cudaMalloc ((void**)&oks_d, N_PRT * d.n_events_gen * sizeof(int));
 
    printf ("batch: %d\n", d.batch);
-   _init_fv<<<d.n_events_gen/1024 + 1,d.nt>>> (d.batch, factors_d, volumes_d, oks_d);
+   _init_fv<<<d.n_events_gen/1024 + 1,d.nt>>> (d.n_events_gen, factors_d, volumes_d, oks_d);
    cudaDeviceSynchronize();
    for (int channel = 0; channel < n_channels; channel++) {
       int off = channel_offsets[channel];
