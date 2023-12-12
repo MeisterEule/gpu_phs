@@ -2,7 +2,8 @@
 #define PHS_H
 
 #include <stdio.h>
-#include <list>
+
+#include "mappings.h"
 
 enum {MAP_NO=0,
       MAP_SCHANNEL=1,
@@ -51,23 +52,6 @@ extern int ROOT_BRANCH;
 extern int **daughters1;
 extern int **daughters2;
 extern int **has_children;
-
-typedef void mapping_msq_sig (double, double, double, double, double, double, double*, double*, double*);
-typedef void mapping_ct_sig (double, double, double *, double*, double*, double*);
-
-typedef struct {
-   double a[3];
-} map_constant_t;
-
-typedef struct {
-   int *map_id;
-   double *masses;
-   double *widths;
-   map_constant_t *a;
-   map_constant_t *b;
-   mapping_msq_sig **comp_msq;
-   mapping_ct_sig **comp_ct;
-} mapping_t;
 
 extern mapping_t *mappings_host;
 
