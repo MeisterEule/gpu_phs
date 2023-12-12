@@ -9,6 +9,129 @@
 #include "phs.h"
 #include "mom_generator.h"
 
+bool verify_against_whizard = true;
+
+void do_verify_against_whizard (char *ref_file, int n_x, int n_trees, 
+                                int n_in, int n_out, int filepos_start_mom) {
+   phs_dim_t d;
+   d.n_events_val = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos_start_mom);
+
+   fprintf (logfl[LOG_INPUT], "n_events in reference file: %d\n", d.n_events_val);
+
+   double sqrts = 1000;
+   double *x = (double*)malloc(n_x * d.n_events_val * sizeof(double));
+
+   phs_val_t *pval = (phs_val_t*)malloc(d.n_events_val * sizeof (phs_val_t));
+   for (int i = 0; i < d.n_events_val; i++) {
+      pval[i].prt = (phs_prt_t*)malloc((n_in + n_out) * sizeof(phs_prt_t));
+   }
+
+   int *channel_lims = (int*)malloc((n_trees + 1) * sizeof(int));
+   channel_lims[0] = 0;
+   channel_lims[n_trees] = d.n_events_val;
+   read_reference_momenta (ref_file, filepos_start_mom, n_in + n_out, n_x, x, channel_lims, pval);
+   d.n_events_gen = d.n_events_val;
+
+   int *channels = (int*)malloc(d.n_events_gen * sizeof(int));
+   int c = 0;
+   for (int i = 0; i < d.n_events_gen; i++) {
+      if (i == channel_lims[c+1]) c++;
+      channels[i] = c;
+   }
+
+
+   fprintf (logfl[LOG_INPUT], "channel_limits: ");
+   for (int i = 0; i < n_trees + 1; i++) {
+      fprintf (logfl[LOG_INPUT], "%d ", channel_lims[i]);
+   }
+   fprintf (logfl[LOG_INPUT], "\n");
+   fprintf (logfl[LOG_INPUT], "n_events to generate: %d\n", d.n_events_gen);
+
+   long long mem_gpu = count_gpu_memory_requirements (d, n_x);
+
+   double *p = (double*)malloc(PRT_STRIDE * d.n_events_gen * sizeof(double));
+   double *factors = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
+   double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
+   int *oks = (int*)malloc(N_PRT * d.n_events_gen * sizeof(int));
+
+   init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
+   init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
+   double t1 = mysecond();
+   gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
+   double t2 = mysecond();
+
+   double t_tot = 0;
+   for (int i = 0; i < 5; i++) {
+      t_tot += gpu_timers[i];
+   }
+   printf ("GPU Timers: \n");
+   printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
+   printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
+   printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
+   printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
+   printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
+   printf ("  Total: %lf s\n", t_tot);
+
+   FILE *fp = fopen ("compare.gpu", "w+");
+   compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
+                           channels, n_in, n_out, pval, p, factors, volumes);
+   fclose(fp);
+   fp = NULL;
+   printf ("dt: %lf sec\n", t2 - t1);
+
+   free (p);
+   free (factors);
+   free (volumes);
+   free (oks);
+  
+   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * d.n_events_gen * sizeof(phs_prt_t));
+   factors = (double*)malloc(d.n_events_gen * sizeof(double));
+   volumes = (double*)malloc(d.n_events_gen * sizeof(double));
+
+   t1 = mysecond();
+   gen_phs_from_x_cpu (sqrts, d, n_x, x, channels, factors, volumes, prt);
+   t2 = mysecond();
+
+   fp = fopen ("compare.cpu", "w+");
+   compare_phs_cpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
+                           channels, n_in, n_out, pval, prt, factors, volumes);
+   fclose(fp);
+   fp = NULL;
+
+   printf ("dt: %lf sec\n", t2 - t1);
+
+
+   free (factors);
+   free (volumes);
+   free (prt);
+   free (x);
+   free (pval);
+}
+
+void do_verify_internal (int n_events_gen, int n_x, int n_trees) {
+   double t1, t2;
+   phs_dim_t d;
+   d.n_events_gen = n_events_gen;
+   d.n_events_val = n_events_gen;
+
+   init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
+
+   double sqrts = 1000;
+   double *x = (double*)malloc(n_x * d.n_events_gen * sizeof(double));
+
+   srand(1234);
+   /// GENERATE X
+   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * d.n_events_gen * sizeof(phs_prt_t));
+   double *factors = (double*)malloc(d.n_events_gen * sizeof(double));
+   double *volumes = (double*)malloc(d.n_events_gen * sizeof(double));
+
+   t1 = mysecond();
+   gen_phs_from_x_cpu (sqrts, d, n_x, channels, factors, volumes, prt);
+   t2 = mysecond();
+
+   printf ("dt: %lf sec\n", t2 - t1);
+}
+
 int main (int argc, char *argv[]) {
    if (argc < 2) {
       printf ("No reference file given!\n");
@@ -90,99 +213,11 @@ int main (int argc, char *argv[]) {
       fprintf (logfl[LOG_INPUT], "\n");
    }
 
-   phs_dim_t d;
-   d.n_events_val = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos);
-
-   fprintf (logfl[LOG_INPUT], "n_events in reference file: %d\n", d.n_events_val);
-
-   double sqrts = 1000;
-   double *x = (double*)malloc(n_x * d.n_events_val * sizeof(double));
-
-   phs_val_t *pval = (phs_val_t*)malloc(d.n_events_val * sizeof (phs_val_t));
-   for (int i = 0; i < d.n_events_val; i++) {
-      pval[i].prt = (phs_prt_t*)malloc((n_in + n_out) * sizeof(phs_prt_t));
+   if (verify_against_whizard) {
+      do_verify_against_whizard (ref_file, n_x, n_trees, n_in, n_out, filepos);
+   } else {
+      //
    }
-
-   int *channel_lims = (int*)malloc((n_trees + 1) * sizeof(int));
-   channel_lims[0] = 0;
-   channel_lims[n_trees] = d.n_events_val;
-   read_reference_momenta (ref_file, filepos, n_in + n_out, n_x, x, channel_lims, pval);
-   d.n_events_gen = d.n_events_val;
-
-   int *channels = (int*)malloc(d.n_events_gen * sizeof(int));
-   int c = 0;
-   for (int i = 0; i < d.n_events_gen; i++) {
-      if (i == channel_lims[c+1]) c++;
-      channels[i] = c;
-   }
-
-
-   fprintf (logfl[LOG_INPUT], "channel_limits: ");
-   for (int i = 0; i < n_trees + 1; i++) {
-      fprintf (logfl[LOG_INPUT], "%d ", channel_lims[i]);
-   }
-   fprintf (logfl[LOG_INPUT], "\n");
-   fprintf (logfl[LOG_INPUT], "n_events to generate: %d\n", d.n_events_gen);
-
-   long long mem_gpu = count_gpu_memory_requirements (d, n_x);
-
-   double *p = (double*)malloc(PRT_STRIDE * d.n_events_gen * sizeof(double));
-   double *factors = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
-   double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
-   int *oks = (int*)malloc(N_PRT * d.n_events_gen * sizeof(int));
-
-   init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
-   init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
-   double t1 = mysecond();
-   gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
-   double t2 = mysecond();
-
-   double t_tot = 0;
-   for (int i = 0; i < 5; i++) {
-      t_tot += gpu_timers[i];
-   }
-   printf ("GPU Timers: \n");
-   printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
-   printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
-   printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
-   printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
-   printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
-   printf ("  Total: %lf s\n", t_tot);
-
-   FILE *fp = fopen ("compare.gpu", "w+");
-   compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
-                           channels, n_in, n_out, pval, p, factors, volumes);
-   fclose(fp);
-   fp = NULL;
-   printf ("dt: %lf sec\n", t2 - t1);
-
-   free (p);
-   free (factors);
-   free (volumes);
-   free (oks);
-  
-   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * d.n_events_gen * sizeof(phs_prt_t));
-   factors = (double*)malloc(d.n_events_gen * sizeof(double));
-   volumes = (double*)malloc(d.n_events_gen * sizeof(double));
-
-   t1 = mysecond();
-   gen_phs_from_x_cpu (sqrts, d, n_x, x, channels, factors, volumes, prt);
-   t2 = mysecond();
-
-   fp = fopen ("compare.cpu", "w+");
-   compare_phs_cpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
-                           channels, n_in, n_out, pval, prt, factors, volumes);
-   fclose(fp);
-   fp = NULL;
-
-   printf ("dt: %lf sec\n", t2 - t1);
-
-
-   free (factors);
-   free (volumes);
-   free (prt);
-   free (x);
-   free (pval);
 
    final_logfiles();
    return 0;
