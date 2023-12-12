@@ -4,17 +4,9 @@
 #include <string>
 #include <sstream>
 #include <math.h>
-//#include <sys/time.h>
 
 #include "monitoring.h"
 #include "phs.h"
-
-//double mysecond () {
-//    struct timeval tp;
-//    struct timezone tzp;
-//    int i = gettimeofday(&tp,&tzp);
-//    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
-//}
 
 int count_nevents_in_reference_file (char *ref_file, int n_momenta, int filepos) {
    int n_lines = 0;
@@ -350,7 +342,7 @@ int main (int argc, char *argv[]) {
    double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
    int *oks = (int*)malloc(N_PRT * d.n_events_gen * sizeof(int));
 
-   init_mapping_constants (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
+   init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
    gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);

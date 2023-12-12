@@ -47,8 +47,6 @@ extern int N_PRT_OUT;
 extern int PRT_STRIDE;
 extern int ROOT_BRANCH;
 
-//extern const double PRT_INVAL;
-
 extern int **daughters1;
 extern int **daughters2;
 extern int **has_children;
@@ -57,7 +55,7 @@ extern mapping_t *mappings_host;
 
 long long count_gpu_memory_requirements (phs_dim_t d, int n_x);
 
-void init_mapping_constants (int n_channels, double s, double msq_min, double msq_max);
+void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 void gen_phs_from_x_gpu (double sqrts, phs_dim_t d, int n_channels, int *channel_lims, int n_x, double *x,

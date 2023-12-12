@@ -3,11 +3,6 @@
 
 #include "mappings.h"
 
-#define PI 3.14159265358979323846 
-#define TWOPI      6.28318530717958647693
-#define TWOPI2    39.47841760435743447534
-#define TWOPI5  9792.62991312900650440772
-
 __device__ mapping_t *mappings_d = NULL;
 
 __device__ void mapping_msq_from_x_none (double x, double s, double m, double w, double msq_min, double msq_max, double *a,
@@ -168,8 +163,6 @@ __global__ void _init_mapping_constants (int n_channels, double s, double msq_mi
       }
    } 
 } 
-
-
 
 __global__ void _set_mappings (int c, int i) {
    switch (mappings_d[c].map_id[i]) {
