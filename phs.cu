@@ -1,4 +1,5 @@
 #include "phs.h"
+#include "monitoring.h"
 
 #define PI 3.14159265358979323846 
 #define TWOPI      6.28318530717958647693
@@ -401,14 +402,22 @@ void set_msq_gpu (phs_dim_t d, int channel, int off, int branch_idx, xcounter_t 
    int batch = d.batch[channel];
    if (branch_idx == ROOT_BRANCH) {
       cudaMemset(m_max, 0, batch * N_PRT * sizeof(double));
+      START_TIMER(TIME_KERNEL_MSQ);
       _set_msq_root<<<nb,nt>>>(batch, branch_idx, k1, k2, msq + N_PRT * off, sqrts, factors + N_PRT * off, volumes + N_PRT * off, m_max);
+      cudaDeviceSynchronize();
+      STOP_TIMER(TIME_KERNEL_MSQ);
    } else {
+      START_TIMER(TIME_KERNEL_MSQ);
       _set_msq_branch<<<nb,nt>>>(batch, channel, off, branch_idx, k1, k2, xc, sqrts, msq + N_PRT * off,
                                      factors + N_PRT * off, volumes + N_PRT * off, oks + N_PRT * off, m_max);
+      cudaDeviceSynchronize();
+      STOP_TIMER(TIME_KERNEL_MSQ);
    }
-   cudaDeviceSynchronize();
    // if ok
+   START_TIMER(TIME_KERNEL_MSQ);
    _set_decay<<<nb,nt>>> (batch, branch_idx, k1, k2, oks + N_PRT * off, msq + N_PRT * off, m_max, p_decay + N_PRT * off, factors + N_PRT * off);
+   cudaDeviceSynchronize();
+   STOP_TIMER(TIME_KERNEL_MSQ);
 }
 
 void set_msq_cpu (phs_dim_t d, int channel, int branch_idx, xcounter_t *xc, double sqrts, double *msq,
@@ -445,7 +454,6 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx, xcounter_t *xc, doub
       double x = xc->x[id];
       double f;
       double *a = mappings_host[channel].a[branch_idx].a;
-      //printf ("Check a: %lf %lf %lf\n", a[0], a[1], a[2]);
       mapping_msq_from_x_cpu (mappings_host[channel].map_id[branch_idx], x, sqrts * sqrts, msq_min, msq_max, a, &msq[branch_idx], factor);
       if (this_msq >= 0) {
          *factor *= f1 * f2;
@@ -477,7 +485,7 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx, xcounter_t *xc, doub
 __global__ void _apply_boost (int N, int branch_idx, int *oks, double *p_decay, double *msq, double *prt, double *L) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
-   //if (!oks[DN_PRT * tid + branch_idx]) return;
+   if (!oks[DN_PRT * tid + branch_idx]) return;
    double p = p_decay[DN_PRT * tid + branch_idx];
    double E = sqrt(msq[DN_PRT * tid + branch_idx] + p * p);
    for (int i = 0; i < 4; i++) {
@@ -563,19 +571,25 @@ void set_angles_gpu (phs_dim_t d, int channel, int off, int branch_idx, xcounter
    int batch = d.batch[channel];
    double *L0_copy;
    cudaMalloc((void**)&L0_copy, 16 * batch * sizeof(double));
+   START_TIMER (TIME_MEMCPY_BOOST);
    cudaMemcpy(L0_copy, L0, 16 * batch * sizeof(double), cudaMemcpyDeviceToDevice);
+   STOP_TIMER (TIME_MEMCPY_BOOST);
+   START_TIMER (TIME_KERNEL_ANG);
    _apply_boost<<<nb,nt>>>(batch, branch_idx, oks + N_PRT * off, p_decay + N_PRT * off,
                                msq + N_PRT * off, prt + PRT_STRIDE * off, L0_copy);
    cudaDeviceSynchronize();
+   STOP_TIMER (TIME_KERNEL_ANG);
    if (has_children[channel][branch_idx]) {
       int k1 = daughters1[channel][branch_idx];
       int k2 = daughters2[channel][branch_idx];
       double *L_new;
       cudaMalloc((void**)&L_new, 16 * batch * sizeof(double));
       cudaMemset (L_new, 0, 16 * batch * sizeof(double));
+      START_TIMER (TIME_KERNEL_ANG);
       _create_new_boost<<<nb,nt>>>(batch, channel, off, branch_idx, xc, oks + N_PRT * off, s, p_decay + N_PRT * off,
                                        msq + N_PRT * off, factors + N_PRT * off, L0_copy, L_new);
       cudaDeviceSynchronize();
+      STOP_TIMER (TIME_KERNEL_ANG);
 
       set_angles_gpu (d, channel, off, k1, xc, oks, s, msq, factors, p_decay, prt, L_new);
       set_angles_gpu (d, channel, off, k2, xc, oks, s, msq, factors, p_decay, prt, L_new);
@@ -643,36 +657,6 @@ void set_angles_cpu (phs_dim_t d, int channel, int branch_idx, xcounter_t *xc, d
    }
 }
 
-void print_decay (int N, double *p_decay) {
-   printf ("decay1: %lf %lf %lf %lf %lf\n", p_decay[0], p_decay[1], p_decay[2], p_decay[3], p_decay[4]);
-   printf ("decay2: %lf %lf %lf %lf %lf\n", p_decay[5], p_decay[6], p_decay[7], p_decay[8], p_decay[9]);
-}
-
-void print_msq (int N, double *prt) {
-   printf ("msq1: %lf %lf %lf %lf %lf\n", prt[N_PRT * 0 + 0], prt[N_PRT * 0 + 1], 
-                                          prt[N_PRT * 0 + 2], prt[N_PRT * 0 + 3],
-                                          prt[N_PRT * 0 + 4]);
-   printf ("msq2: %lf %lf %lf %lf %lf\n", prt[N_PRT * 1 + 0], prt[N_PRT * 1 + 1], 
-                                          prt[N_PRT * 1 + 2], prt[N_PRT * 1 + 3],
-                                          prt[N_PRT * 1 + 4]);
-}
-
-void print_prt (int N, double *prt) {
-   for (int i = 0; i < N_PRT; i++) {
-      printf ("prt1[%d]: %lf %lf %lf %lf\n", i, prt[PRT_STRIDE * 0 + 4 * i],
-                                                prt[PRT_STRIDE * 0 + 4 * i + 1],
-                                                prt[PRT_STRIDE * 0 + 4 * i + 2],
-                                                prt[PRT_STRIDE * 0 + 4 * i + 3]);
-   }
-   for (int i = 0; i < N_PRT; i++) {
-      printf ("prt2[%d]: %lf %lf %lf %lf\n", i, prt[PRT_STRIDE * 1 + 4 * i],
-                                                prt[PRT_STRIDE * 1 + 4 * i + 1],
-                                                prt[PRT_STRIDE * 1 + 4 * i + 2],
-                                                prt[PRT_STRIDE * 1 + 4 * i + 3]);
-
-   }
-}
-
 __global__ void _init_x (xcounter_t *xc, double *x, int *id, int nx) {
    xc->nx = nx;
    xc->id_gpu = id;
@@ -734,19 +718,17 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
                      + mem_pdecay + mem_msq + mem_factors
                      + mem_volumes + mem_oks + mem_boost;
 
-#ifdef _VERBOSE
-   printf ("GPU Memory requirements [GiB]: \n");
-   printf ("   m_max: %lf\n", (double)mem_m_max / BYTES_PER_GB);
-   printf ("   x_counter: %lf\n", (double)mem_xc / BYTES_PER_GB);
-   printf ("   momenta tree: %lf\n", (double)mem_prt / BYTES_PER_GB);
-   printf ("   p_decay: %lf\n", (double)mem_pdecay / BYTES_PER_GB);
-   printf ("   msq: %lf\n", (double)mem_msq / BYTES_PER_GB);
-   printf ("   factors: %lf\n", (double)mem_factors / BYTES_PER_GB);
-   printf ("   volumes: %lf\n", (double)mem_volumes / BYTES_PER_GB);
-   printf ("   oks: %lf\n", (double)mem_oks / BYTES_PER_GB);
-   printf ("   Boosts: %lf\n", (double)mem_boost / BYTES_PER_GB);
-   printf ("    Total: %lf\n", (double)mem_tot / BYTES_PER_GB);
-#endif
+   fprintf (logfl[LOG_CUDA], "GPU Memory requirements [GiB]: \n");
+   fprintf (logfl[LOG_CUDA], "   m_max: %lf\n", (double)mem_m_max / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   x_counter: %lf\n", (double)mem_xc / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   momenta tree: %lf\n", (double)mem_prt / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   p_decay: %lf\n", (double)mem_pdecay / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   msq: %lf\n", (double)mem_msq / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   factors: %lf\n", (double)mem_factors / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   volumes: %lf\n", (double)mem_volumes / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   oks: %lf\n", (double)mem_oks / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "   Boosts: %lf\n", (double)mem_boost / BYTES_PER_GB);
+   fprintf (logfl[LOG_CUDA], "    Total: %lf\n", (double)mem_tot / BYTES_PER_GB);
    return mem_tot;
 }
 
@@ -761,7 +743,9 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
    cudaMalloc((void**)&id_d, d.n_events_gen * sizeof(int));
    xcounter_t *xc;
    cudaMalloc((void**)&xc, sizeof(xcounter_t));
+   START_TIMER(TIME_MEMCPY_IN);
    cudaMemcpy (x_d, x_h, n_x * d.n_events_gen * sizeof(double), cudaMemcpyHostToDevice);
+   STOP_TIMER(TIME_MEMCPY_IN);
    cudaMemset (id_d, 0, d.n_events_gen * sizeof(int));
    _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
 
@@ -806,13 +790,10 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
       int off = channel_offsets[channel];
       set_msq_gpu (d, channel, off, ROOT_BRANCH, xc, sqrts,
                    msq_d, factors_d, volumes_d, oks_d, pdecay_d);
-      cudaDeviceSynchronize();
-#ifdef _VERBOSE
-      printf ("CUDA msq %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
-#endif
+      //cudaDeviceSynchronize();
+      fprintf (logfl[LOG_CUDA], "CUDA error msq %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
    }
 
-   cudaDeviceSynchronize();
    for (int channel = 0; channel < n_channels; channel++) {
       int off = channel_offsets[channel];
 
@@ -822,17 +803,17 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
       set_angles_gpu (d, channel, off, N_PRT_OUT - 1, xc, oks_d, sqrts * sqrts,
                       msq_d, factors_d, pdecay_d, p_d, L0);
       cudaFree(L0);
-      cudaDeviceSynchronize();
-#ifdef _VERBOSE
-      printf ("CUDA angles %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
-#endif
+      //cudaDeviceSynchronize();
+      fprintf (logfl[LOG_CUDA], "CUDA error angles %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
    }
 
 
+   START_TIMER (TIME_MEMCPY_OUT);
    cudaMemcpy (p_h, p_d, PRT_STRIDE * d.n_events_gen * sizeof(double), cudaMemcpyDeviceToHost);
    cudaMemcpy (factors_h, factors_d, N_PRT * d.n_events_gen * sizeof(double), cudaMemcpyDeviceToHost);
    cudaMemcpy (volumes_h, volumes_d, N_PRT * d.n_events_gen * sizeof(double), cudaMemcpyDeviceToHost);
    cudaMemcpy (oks_h, oks_d, N_PRT * d.n_events_gen * sizeof(int), cudaMemcpyDeviceToHost);
+   STOP_TIMER (TIME_MEMCPY_OUT);
 
    cudaFree (m_max);
    cudaFree (x_d);

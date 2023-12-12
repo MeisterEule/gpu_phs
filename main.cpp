@@ -4,16 +4,17 @@
 #include <string>
 #include <sstream>
 #include <math.h>
-#include <sys/time.h>
+//#include <sys/time.h>
 
+#include "monitoring.h"
 #include "phs.h"
 
-double mysecond () {
-    struct timeval tp;
-    struct timezone tzp;
-    int i = gettimeofday(&tp,&tzp);
-    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
-}
+//double mysecond () {
+//    struct timeval tp;
+//    struct timezone tzp;
+//    int i = gettimeofday(&tp,&tzp);
+//    return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
+//}
 
 int count_nevents_in_reference_file (char *ref_file, int n_momenta, int filepos) {
    int n_lines = 0;
@@ -233,10 +234,12 @@ int main (int argc, char *argv[]) {
       return -1;
    }
    char *ref_file = argv[1];
+   // Check that the ref file exists
+   //
+   init_logfiles ("input.log", "cuda.log");
 
    int n_prt_tot, n_prt_out;
    int filepos = 0;
-   //read_reference_header (ref_file, &n_channels, &n_in, &n_out, &n_trees, &n_forests, &filepos);
    int *header_data = (int*)malloc (NHEADER * sizeof(int));
    read_reference_header (ref_file, header_data, &filepos);
    int n_channels = header_data[H_NCHANNELS];
@@ -251,15 +254,13 @@ int main (int argc, char *argv[]) {
    PRT_STRIDE = 4 * N_PRT;
    ROOT_BRANCH = N_PRT_OUT - 1;
 
-#ifdef _VERBOSE
-   printf ("n_channels: %d\n", n_channels);
-   printf ("n_in: %d\n", n_in);
-   printf ("n_out: %d\n", n_out);
-   printf ("n_trees: %d\n", n_trees);
-   printf ("nx: %d\n", n_x);
-   printf ("NPRT: %d\n", N_PRT);
-   printf ("NPRT_OUT: %d\n", N_PRT_OUT);
-#endif
+   fprintf (logfl[LOG_INPUT], "n_channels: %d\n", n_channels);
+   fprintf (logfl[LOG_INPUT], "n_in: %d\n", n_in);
+   fprintf (logfl[LOG_INPUT], "n_out: %d\n", n_out);
+   fprintf (logfl[LOG_INPUT], "n_trees: %d\n", n_trees);
+   fprintf (logfl[LOG_INPUT], "nx: %d\n", n_x);
+   fprintf (logfl[LOG_INPUT], "NPRT: %d\n", N_PRT);
+   fprintf (logfl[LOG_INPUT], "NPRT_OUT: %d\n", N_PRT_OUT);
 
    daughters1 = (int**)malloc(n_trees * sizeof(int*));
    daughters2 = (int**)malloc(n_trees * sizeof(int*));
@@ -279,44 +280,39 @@ int main (int argc, char *argv[]) {
    }
    read_tree_structures (ref_file, n_trees, &filepos);
 
-#ifdef _VERBOSE
    for (int c = 0; c < n_channels; c++) {
-      printf ("Channel %d: \n", c);
-      printf ("daughters1: ");
+      fprintf (logfl[LOG_INPUT], "Channel %d: \n", c);
+      fprintf (logfl[LOG_INPUT], "daughters1: ");
       for (int i = 0; i < N_PRT; i++) {
-         printf ("%d ", daughters1[c][i]);
+         fprintf (logfl[LOG_INPUT], "%d ", daughters1[c][i]);
       }
-      printf ("\ndaughters2: ");
+      fprintf (logfl[LOG_INPUT], "\ndaughters2: ");
       for (int i = 0; i < N_PRT; i++) {
-         printf ("%d ", daughters2[c][i]);
+         fprintf (logfl[LOG_INPUT], "%d ", daughters2[c][i]);
       }
-      printf ("\nhas_children: ");
+      fprintf (logfl[LOG_INPUT], "\nhas_children: ");
       for (int i = 0; i < N_PRT; i++) {
-         printf ("%d ", has_children[c][i]);
+         fprintf (logfl[LOG_INPUT], "%d ", has_children[c][i]);
       }
-      printf ("\nmappings: ");
+      fprintf (logfl[LOG_INPUT], "\nmappings: ");
       for (int i = 0; i < N_PRT_OUT; i++) {
-         printf ("%d ", mappings_host[c].map_id[i]);
+         fprintf (logfl[LOG_INPUT], "%d ", mappings_host[c].map_id[i]);
       }
-      printf ("\nmasses: ");
+      fprintf (logfl[LOG_INPUT], "\nmasses: ");
       for (int i = 0; i < N_PRT_OUT; i++) {
-         printf ("%lf ", mappings_host[c].masses[i]);
+         fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].masses[i]);
       }
-      printf ("\nwidths: ");
+      fprintf (logfl[LOG_INPUT], "\nwidths: ");
       for (int i = 0; i < N_PRT_OUT; i++) {
-         printf ("%lf ", mappings_host[c].widths[i]);
+         fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].widths[i]);
       }
-      printf ("\n");
+      fprintf (logfl[LOG_INPUT], "\n");
    }
-#endif
 
    phs_dim_t d;
    d.n_events_val = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos);
 
-#ifdef _VERBOSE
-   printf ("n_events in reference file: %d\n", d.n_events_val);
-   printf ("Memory required for reference momenta: %lf GiB\n", (double)(d.n_events_val * (n_in + n_out) * sizeof(phs_prt_t)) / 1024 / 1024 / 1024);
-#endif
+   fprintf (logfl[LOG_INPUT], "n_events in reference file: %d\n", d.n_events_val);
 
    double sqrts = 1000;
    double *x = (double*)malloc(n_x * d.n_events_val * sizeof(double));
@@ -340,14 +336,12 @@ int main (int argc, char *argv[]) {
    }
 
 
-#ifdef _VERBOSE
-   printf ("channel_limits: ");
+   fprintf (logfl[LOG_INPUT], "channel_limits: ");
    for (int i = 0; i < n_trees + 1; i++) {
-      printf ("%d ", channel_lims[i]);
+      fprintf (logfl[LOG_INPUT], "%d ", channel_lims[i]);
    }
-   printf ("\n");
-   printf ("n_events to generate: %d\n", d.n_events_gen);
-#endif
+   fprintf (logfl[LOG_INPUT], "\n");
+   fprintf (logfl[LOG_INPUT], "n_events to generate: %d\n", d.n_events_gen);
 
    long long mem_gpu = count_gpu_memory_requirements (d, n_x);
 
@@ -361,6 +355,18 @@ int main (int argc, char *argv[]) {
    double t1 = mysecond();
    gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
    double t2 = mysecond();
+
+   double t_tot = 0;
+   for (int i = 0; i < 5; i++) {
+      t_tot += gpu_timers[i];
+   }
+   printf ("GPU Timers: \n");
+   printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
+   printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
+   printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
+   printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
+   printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
+   printf ("  Total: %lf s\n", t_tot);
 
    FILE *fp = fopen ("compare.gpu", "w+");
    compare_phs_gpu (fp, d.n_events_val, d.n_events_gen, channels, n_in, n_out, pval, p, factors, volumes);
@@ -393,13 +399,9 @@ int main (int argc, char *argv[]) {
    free (factors);
    free (volumes);
    free (prt);
-   free(x);
-   free(pval);
-   //free(pval1);
-   //free(pval2);
-   //free(pval3);
-   //free(pval4);
-   //free(fval);
-   //free(vval);
+   free (x);
+   free (pval);
+
+   final_logfiles();
    return 0;
 }
