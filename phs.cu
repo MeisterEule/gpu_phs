@@ -365,7 +365,7 @@ __global__ void _set_decay (int N, int branch_idx, int k1, int k2, int *oks, dou
                             double *p_decay, double *factors) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
-   //if (!oks[DN_PRT * tid + branch_idx]) return;
+   if (!oks[DN_PRT * tid + branch_idx]) return;
    double this_msq = msq[DN_PRT * tid + branch_idx];
    double msq1 = msq[DN_PRT * tid + k1];
    double msq2 = msq[DN_PRT * tid + k2];
@@ -438,7 +438,6 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx, xcounter_t *xc, doub
       f2 = 1; v2 = 1;
    }
 
-   //printf ("branch_idx: %d\n", branch_idx);
    if (branch_idx == ROOT_BRANCH) {
       memset (m_max, 0, N_PRT * sizeof(double));
       msq[branch_idx] = sqrts * sqrts;
@@ -512,7 +511,7 @@ __global__ void _create_new_boost (int N, int channel, int off, int branch_idx, 
                                    double *msq, double *factors, double *L0, double *L_new) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
-   //if (!oks[DN_PRT * tid + branch_idx]) return;
+   if (!oks[DN_PRT * tid + branch_idx]) return;
    double p = p_decay[DN_PRT * tid + branch_idx];
    double m = sqrt(msq[DN_PRT * tid + branch_idx]);
    double bg = m > 0 ? p / m : 0;
