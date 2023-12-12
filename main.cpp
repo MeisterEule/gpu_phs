@@ -153,72 +153,6 @@ void read_reference_momenta (char *ref_file, int filepos, int n_momenta, int n_x
    }
 }
 
-#define EPSILON 0.0001
-
-void compare_phs_gpu (FILE *fp, int n_events_val, int n_events_gen, int *channels, int n_in, int n_out, phs_val_t *pval,
-                      double *prt, double *factors, double *volumes) {
-   int n_events_failed = 0;
-   for (int i = 0; i < n_events_gen; i++) {
-      for (int n = 0; n < n_out; n++) {
-         double *p = pval[i].prt[n_in+n].p;
-         int nn = pow(2,n) - 1;
-         if (fabs (p[0] - prt[PRT_STRIDE * i + 4 * nn + 0]) > EPSILON
-          || fabs(p[1] - prt[PRT_STRIDE * i + 4 * nn + 1]) > EPSILON
-          || fabs(p[2] - prt[PRT_STRIDE * i + 4 * nn + 2]) > EPSILON
-          || fabs(p[3] - prt[PRT_STRIDE * i + 4 * nn + 3]) > EPSILON) {
-            fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", n_in + n + 1, i, channels[i]);
-            fprintf (fp, "Validation: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
-            fprintf (fp, "Generated:  %lf %lf %lf %lf\n", prt[PRT_STRIDE * i + 4 * nn + 0], prt[PRT_STRIDE * i + 4 * nn + 1],
-                                                     prt[PRT_STRIDE * i + 4 * nn + 2], prt[PRT_STRIDE * i + 4 * nn + 3]);
-            n_events_failed++;
-         }
-
-      }
-      if (fabs (pval[i].f - factors[N_PRT * i + ROOT_BRANCH]) > EPSILON) {
-         fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[N_PRT * i + ROOT_BRANCH]);
-         n_events_failed++;
-      }
-
-      if (fabs (pval[i].v - volumes[N_PRT * i + ROOT_BRANCH]) > EPSILON) {
-         fprintf (fp, "Error in volume (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[N_PRT * i + ROOT_BRANCH]);
-         n_events_failed++;
-      }
-   } 
-   fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events_gen);
-}
-
-void compare_phs_cpu (FILE *fp, int n_events_val, int n_events_gen, int *channels, int n_in, int n_out, phs_val_t *pval,
-                      phs_prt_t *prt, double *factors, double *volumes) {
-   int n_events_failed = 0;
-   //for (int i = 0; i < n_events_val && ok; i++) {
-   for (int i = 0; i < n_events_val; i++) {
-      for (int n = 0; n < n_out; n++) {
-         double *p = pval[i].prt[n_in+n].p;
-         int nn = pow(2,n) - 1;
-         if (fabs (p[0] - prt[N_PRT*i + nn].p[0]) > EPSILON
-          || fabs (p[1] - prt[N_PRT*i + nn].p[1]) > EPSILON
-          || fabs (p[2] - prt[N_PRT*i + nn].p[2]) > EPSILON
-          || fabs (p[3] - prt[N_PRT*i + nn].p[3]) > EPSILON) {
-               fprintf (fp, "Error in p%d (event: %d, channel: %d):\n", n, i, channels[i]);
-               fprintf (fp, "Validation: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
-               fprintf (fp, "Generated:  %lf %lf %lf %lf\n", prt[N_PRT*i + nn].p[0], prt[N_PRT*i + nn].p[1],
-                                                        prt[N_PRT*i + nn].p[2], prt[N_PRT*i + nn].p[3]);
-               n_events_failed++;
-         }
-
-         if (fabs (pval[i].f - factors[i]) > EPSILON) {
-            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
-            n_events_failed++;
-         }
-
-         if (fabs (pval[i].v - volumes[i]) > EPSILON) {
-            fprintf (fp, "Error in volume (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
-            n_events_failed++;
-         }
-     }
-   }
-   fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events_gen);
-}
 
 int main (int argc, char *argv[]) {
    if (argc < 2) {
@@ -361,7 +295,8 @@ int main (int argc, char *argv[]) {
    printf ("  Total: %lf s\n", t_tot);
 
    FILE *fp = fopen ("compare.gpu", "w+");
-   compare_phs_gpu (fp, d.n_events_val, d.n_events_gen, channels, n_in, n_out, pval, p, factors, volumes);
+   compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
+                           channels, n_in, n_out, pval, p, factors, volumes);
    fclose(fp);
    fp = NULL;
    printf ("dt: %lf sec\n", t2 - t1);
@@ -370,7 +305,6 @@ int main (int argc, char *argv[]) {
    free (factors);
    free (volumes);
    free (oks);
-
   
    phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * d.n_events_gen * sizeof(phs_prt_t));
    factors = (double*)malloc(d.n_events_gen * sizeof(double));
@@ -381,7 +315,8 @@ int main (int argc, char *argv[]) {
    t2 = mysecond();
 
    fp = fopen ("compare.cpu", "w+");
-   compare_phs_cpu (fp, d.n_events_val, d.n_events_gen, channels, n_in, n_out, pval, prt, factors, volumes);
+   compare_phs_cpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
+                           channels, n_in, n_out, pval, prt, factors, volumes);
    fclose(fp);
    fp = NULL;
 
