@@ -18,9 +18,9 @@ enum {MAP_NO=0,
 typedef struct {
    int n_events_val;
    int n_events_gen;
-   int nt; // n_threads
-   int nb; // n_blocks 
-   int batch;
+   int *nt; // n_threads
+   int *nb; // n_blocks 
+   int *batch;
 } phs_dim_t;
 
 typedef struct {
