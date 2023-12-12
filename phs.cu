@@ -789,7 +789,6 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
       int off = channel_offsets[channel];
       set_msq_gpu (d, channel, off, ROOT_BRANCH, xc, sqrts,
                    msq_d, factors_d, volumes_d, oks_d, pdecay_d);
-      //cudaDeviceSynchronize();
       fprintf (logfl[LOG_CUDA], "CUDA error msq %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
    }
 
@@ -802,7 +801,6 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
       set_angles_gpu (d, channel, off, N_PRT_OUT - 1, xc, oks_d, sqrts * sqrts,
                       msq_d, factors_d, pdecay_d, p_d, L0);
       cudaFree(L0);
-      //cudaDeviceSynchronize();
       fprintf (logfl[LOG_CUDA], "CUDA error angles %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
    }
 
