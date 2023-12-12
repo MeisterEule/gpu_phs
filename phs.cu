@@ -1,7 +1,6 @@
 #include <algorithm>
 
 #include "phs.h"
-#include "mappings_gpu.hpp"
 #include "monitoring.h"
 
 int N_PRT = 0;
@@ -14,6 +13,8 @@ __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
 __device__ int DPRT_STRIDE;
 __device__ int DROOT_BRANCH;
+
+#include "mappings_gpu.hpp"
 
 int **daughters1 = NULL;
 int **daughters2 = NULL;
@@ -116,118 +117,6 @@ __global__ void _fill_masses (int channel, double *m, double *w) {
    for (int i = 0; i < DN_PRT_OUT; i++) {
       mappings_d[channel].masses[i] = m[i];
       mappings_d[channel].widths[i] = w[i];
-   }
-}
-
-__global__ void _init_mapping_constants (int n_channels, double s, double msq_min, double msq_max) {
-   double msq0;
-   for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < DN_PRT_OUT; i++) {
-         int map_id = mappings_d[c].map_id[i];
-         double *a1 = mappings_d[c].a[i].a;
-         double *a2 = mappings_d[c].a[i].a + 1;
-         double *a3 = mappings_d[c].a[i].a + 2;
-         double *b1 = mappings_d[c].b[i].a;
-         double *b2 = mappings_d[c].b[i].a + 1;
-         double *b3 = mappings_d[c].b[i].a + 2;
-         double m = mappings_d[c].masses[i];
-         double w = mappings_d[c].widths[i];
-         // Compute a for msq
-         switch (map_id) {
-            case MAP_NO:
-               *a1 = 0;
-               *a2 = msq_max - msq_min;
-               *a3 = *a2 / s;
-               break;
-            case MAP_SCHANNEL:
-               msq0 = m * m;
-               *a1 = atan ((msq_min - msq0) / (m * w));
-               *a2 = atan ((msq_max - msq0) / (m * w));
-               *a3 = (*a2 - (*a1)) * (m * w) / s;
-               break;
-            case MAP_RADIATION:
-            case MAP_COLLINEAR:
-            case MAP_INFRARED:
-               if (map_id == MAP_RADIATION) {
-                  msq0 = w * w;
-               } else {
-                  msq0 = m * m;
-               }
-               *a1 = msq0;
-               *a2 = log((msq_max - msq_min) / msq0 + 1);
-               *a3 = *a2 / s;
-               break;
-            case MAP_TCHANNEL:
-            case MAP_UCHANNEL:
-               msq0 = m * m;
-               *a1 = msq0;
-               *a2 = 2 * log ((msq_max - msq_min) / (2 * msq0) + 1);
-               *a3 = *a2 / s;
-               break;
-            case MAP_STEP_E:
-               *a3 = 2 * m * w / (msq_max - msq_min);
-               if (*a3 < 0.01) *a3 = 0.01;
-               *a2 = exp ( -(m * m - msq_min) / (msq_max - msq_min) / (*a3));
-               *a1 = 1 - (*a3) * log ((1 + (*a2) * exp (1 / (*a3))) / (1 + (*a2)));
-               break;
-            case MAP_STEP_H:
-               *a3 = (m * m - msq_min) / (msq_max - msq_min);
-               *a2 = pow(2 * m * w / (msq_max - msq_min),2) / (*a3);
-               if (*a2 < 0.000001) *a2 = 0.000001;
-               *a1 = (1 + sqrt(1 + 4 * (*a2) / (1 - (*a3)))) / 2;
-               break;
-         }
-
-         /// Compute b for ct
-         switch (map_id) {
-            case MAP_TCHANNEL:
-            case MAP_UCHANNEL:
-            case MAP_COLLINEAR:
-               *b1 = m * m / s;
-               *b2 = log((*b1 + 1) / (*b1));
-               *b3 = 0;
-               break;
-            default:
-               *b1 = 0;
-               *b2 = 0;
-               *b3 = 0;
-               break;
-         }
-      }
-   } 
-} 
-
-__global__ void _set_mappings (int c, int i) {
-   switch (mappings_d[c].map_id[i]) {
-         case MAP_NO:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_none;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
-            break;
-         case MAP_SCHANNEL:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_schannel;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
-            break;
-         case MAP_COLLINEAR:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_collinear;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_collinear;
-            break;
-         case MAP_RADIATION:
-         case MAP_INFRARED:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_collinear;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
-            break;
-         case MAP_UCHANNEL:
-         case MAP_TCHANNEL:
-            break;
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_tuchannel;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_collinear;
-         case MAP_STEP_E:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_step_e;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
-            break;
-         case MAP_STEP_H:
-            mappings_d[c].comp_msq[i] = mapping_msq_from_x_step_h;
-            mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
    }
 }
 
