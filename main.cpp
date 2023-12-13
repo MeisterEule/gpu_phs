@@ -11,6 +11,9 @@
 
 bool verify_against_whizard = true;
 
+int *n_cmd = NULL;
+int *cmd = NULL;
+
 void do_verify_against_whizard (char *ref_file, int n_x, int n_trees, 
                                 int n_in, int n_out, int filepos_start_mom) {
    phs_dim_t d;
@@ -57,8 +60,10 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
-   gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
+   //gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
+   gen_phs_from_x_gpu_2 (d, cmd, n_cmd[0], n_trees, channel_lims, n_x, x);
    double t2 = mysecond();
+   return;
 
    double t_tot = 0;
    for (int i = 0; i < 5; i++) {
@@ -114,9 +119,9 @@ void do_verify_internal (int n_events_gen, int n_x, int n_trees) {
    d.n_events_gen = n_events_gen;
    d.n_events_val = n_events_gen;
 
+   double sqrts = 1000;
    init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
 
-   double sqrts = 1000;
    double *x = (double*)malloc(n_x * d.n_events_gen * sizeof(double));
 
    srand(1234);
@@ -126,7 +131,7 @@ void do_verify_internal (int n_events_gen, int n_x, int n_trees) {
    double *volumes = (double*)malloc(d.n_events_gen * sizeof(double));
 
    t1 = mysecond();
-   gen_phs_from_x_cpu (sqrts, d, n_x, channels, factors, volumes, prt);
+   //gen_phs_from_x_cpu (sqrts, d, n_x, channels, factors, volumes, prt);
    t2 = mysecond();
 
    printf ("dt: %lf sec\n", t2 - t1);
@@ -188,6 +193,7 @@ int main (int argc, char *argv[]) {
       fprintf (logfl[LOG_INPUT], "Channel %d: \n", c);
       fprintf (logfl[LOG_INPUT], "daughters1: ");
       for (int i = 0; i < N_PRT; i++) {
+         daughters1[c][i]++;
          fprintf (logfl[LOG_INPUT], "%d ", daughters1[c][i]);
       }
       fprintf (logfl[LOG_INPUT], "\ndaughters2: ");
@@ -213,6 +219,40 @@ int main (int argc, char *argv[]) {
       fprintf (logfl[LOG_INPUT], "\n");
    }
 
+   n_cmd = (int*)malloc(n_trees * sizeof(int));
+   int n_tot = 0;
+   for (int c = 0; c < n_trees; c++) {
+      n_cmd[c] = 0;
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         if (daughters1[c][i] > 0) n_cmd[c]++;
+      }
+      n_tot += n_cmd[c];
+   }
+
+   cmd = (int*)malloc(3 * n_tot * sizeof(int));
+   //msq_cmd_t *cmd = (msq_cmd_t*)malloc(n_tot * sizeof(msq_cmd_t));
+
+   for (int c = 0; c < n_trees; c++) {
+      int cc = 0;
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         if (daughters1[c][i] > 0) {
+            cmd[3 * n_cmd[c] * c + 3 * cc + 0] = daughters1[c][i] - 1;
+            cmd[3 * n_cmd[c] * c + 3 * cc + 1] = (i+1) - daughters1[c][i] - 1;
+            cmd[3 * n_cmd[c] * c + 3 * cc + 2] = (i+1) - 1;
+            cc++;
+         } 
+      }
+   }
+
+   for (int c = 0; c < n_trees; c++) {
+      printf ("Channel: %d\n", c);
+      for (int cc = 0; cc < n_cmd[c]; cc++) {
+         printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0],
+                                  cmd[3 * n_cmd[c] * c + 3 * cc + 1],
+                                  cmd[3 * n_cmd[c] * c + 3 * cc + 2]);
+      }
+   }
+    
    if (verify_against_whizard) {
       do_verify_against_whizard (ref_file, n_x, n_trees, n_in, n_out, filepos);
    } else {

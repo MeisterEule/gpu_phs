@@ -58,8 +58,14 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x);
 void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
-void gen_phs_from_x_gpu (double sqrts, phs_dim_t d, int n_channels, int *channel_lims, int n_x, double *x,
+
+void gen_phs_from_x_gpu (double sqrts, phs_dim_t d, int n_channels,
+                         int *channel_lims, int n_x, double *x,
                          double *factors, double *volumes, int *oks, double *p);
+
+void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds, 
+                           int n_channels, int *channel_lims, int n_x, double *x_h);
+
 void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels, double *factors, double *volumes, phs_prt_t *prt);
 
 

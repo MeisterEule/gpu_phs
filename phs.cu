@@ -6,9 +6,11 @@ int N_PRT_IN = 0;
 int N_PRT_OUT = 0;
 int PRT_STRIDE = 0;
 int ROOT_BRANCH = 0;
+int N_PART = 0;
 
 __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
+__device__ int DN_PART;
 __device__ int DPRT_STRIDE;
 __device__ int DROOT_BRANCH;
 
@@ -343,6 +345,37 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
    return mem_tot;
 }
 
+void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
+   _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, ROOT_BRANCH);
+
+   cudaDeviceSynchronize();
+   _init_mappings<<<1,1>>>(n_channels, map_h);
+   int *tmp;
+   cudaMalloc((void**)&tmp, N_PRT_OUT * sizeof(int));
+   for (int c = 0; c < n_channels; c++) {
+       cudaMemcpy (tmp, map_h[c].map_id, N_PRT_OUT * sizeof(int), cudaMemcpyHostToDevice);
+       _fill_mapids<<<1,1>>> (c, tmp);
+   }
+   cudaFree(tmp);
+   double *m, *w;
+   cudaMalloc((void**)&m, N_PRT_OUT * sizeof(double));
+   cudaMalloc((void**)&w, N_PRT_OUT * sizeof(double));
+   for (int c = 0; c < n_channels; c++) {
+       cudaMemcpy (m, map_h[c].masses, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
+       cudaMemcpy (w, map_h[c].widths, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
+       _fill_masses<<<1,1>>> (c, m, w);
+   }
+   cudaFree(m);
+   cudaFree(w);
+   cudaDeviceSynchronize();
+   _init_mapping_constants<<<1,1>>> (n_channels, s, 0, s);
+   for (int c = 0; c < n_channels; c++) {
+      set_mappings(c);
+   }
+}
+
+
+
 void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *channel_offsets, 
                                int n_x, double *x_h, double *factors_h, double *volumes_h, int *oks_h, double *p_h) {
 
@@ -440,33 +473,111 @@ void gen_phs_from_x_gpu_batch (double sqrts, phs_dim_t d, int n_channels, int *c
    free (d.nb);
 }
 
-void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
-   printf ("Init phs GPU!\n");
-   _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, ROOT_BRANCH);
+__global__ void _apply_msq (int N, double sqrts, int channel, int *cmd, int n_cmd,
+                            xcounter_t *xc,
+                            double *msq, double *factors, double *volumes) {
+  int tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  double mm_max = sqrts;
+  double msq_min = 0;
+  double msq_max = sqrts * sqrts;
+  for (int c = 0; c < n_cmd - 1; c++) {
+     int k1 = cmd[3 * n_cmd * channel + 3 * c];
+     int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
+     int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
+     int xtid = xc->nx * tid + xc->id_gpu[tid]++;
+     double x = xc->x[xtid];
+     double *a = mappings_d[channel].a[branch_idx].a;
+     double m = mappings_d[channel].masses[branch_idx];
+     double w = mappings_d[channel].widths[branch_idx];
+     double f;
+     ///mappings_d[channel].comp_msq[branch_idx](x, sqrts * sqrts, m, w, msq_min, msq_max, a,
+     ///                                         &msq[DN_PART * tid + branch_idx], &f);
+     ///factors[DN_PART * tid + branch_idx] = f * factors[DN_PART * tid + k1] * factors[DN_PART * tid + k2]; 
+     ///volumes[DN_PART * tid + branch_idx] *= volumes[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] * sqrts * sqrts / (4 * TWOPI2);
+  }
+  // ROOT BRANCH
+  int k1 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1)];
+  int k2 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1) + 1];
+  //msq[DN_PART * tid + DROOT_BRANCH] = sqrts * sqrts;
+  //factors[DN_PART * tid + DROOT_BRANCH] = factors[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] / (4 * TWOPI5);
+}
+
+__global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_cmd,
+                              double *msq, double *p_decay, double *factors) {
+  int tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  for (int c = 0; c < n_cmd; c++) {
+     int k1 = cmd[3 * n_cmd * channel + 3 * c];
+     int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
+     int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
+     double msq0 = msq[DN_PART * tid + branch_idx];
+     double msq1 = msq[DN_PART * tid + k1];
+     double msq2 = msq[DN_PART * tid + k2];
+     double m0 = sqrt(msq0);
+     double m1 = sqrt(msq1);
+     double m2 = sqrt(msq2);
+     double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
+     p_decay[DN_PART * tid + k1] = sqrt(lda) / (2 * m0);
+     p_decay[DN_PART * tid + k2] = -sqrt(lda) / (2 * m0);
+     factors[DN_PART * tid + branch_idx] *= sqrt(lda) / msq0;
+  }
+}
+
+void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds, 
+                           int n_channels, int *channel_lims, int n_x, double *x_h) {
+   double *x_d;
+   int *id_d;
+   cudaMalloc((void**)&x_d, n_x * d.n_events_gen * sizeof(double));
+   cudaMalloc((void**)&id_d, d.n_events_gen * sizeof(int));
+   xcounter_t *xc;
+   cudaMalloc((void**)&xc, sizeof(xcounter_t));
+   cudaMemcpy (x_d, x_h, n_x * d.n_events_gen * sizeof(double), cudaMemcpyHostToDevice);
+   cudaMemset (id_d, 0, d.n_events_gen * sizeof(int));
+   _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
+
+   int *cmds_d;
+   cudaMalloc((void**)&cmds_d, 3 * n_channels * n_cmds * sizeof(int));
+   cudaMemcpy(cmds_d, cmds, 3 * n_channels * n_cmds * sizeof(int), cudaMemcpyHostToDevice);
+
+   double *msq_d;
+   cudaMalloc((void**)&msq_d, N_PART * d.n_events_gen * sizeof(double)); 
+   double *p_decay;
+   cudaMalloc((void**)&p_decay, N_PART * d.n_events_gen * sizeof(double));
+
+   double *factors_d;
+   cudaMalloc ((void**)&factors_d, N_PRT * d.n_events_gen * sizeof(double));
+   double *volumes_d;
+   cudaMalloc ((void**)&volumes_d, N_PRT * d.n_events_gen * sizeof(double));
+   int *oks_d;
+   cudaMalloc ((void**)&oks_d, N_PRT * d.n_events_gen * sizeof(int));
+   _init_fv<<<d.n_events_gen/1024 + 1,1024>>> (d.n_events_gen, factors_d, volumes_d, oks_d);
+
+   d.batch = (int*)malloc(n_channels * sizeof(int));
+   d.nt = (int*)malloc(n_channels * sizeof(int));
+   d.nb = (int*)malloc(n_channels * sizeof(int));
+   for (int c = 0; c < n_channels; c++) {
+      d.batch[c] = channel_lims[c+1] - channel_lims[c];
+      if (d.batch[c] > 1024) {
+         d.nt[c] = 1024;
+         d.nb[c] = d.batch[c] / 1024 + 1; 
+      } else {
+         d.nt[c] = d.batch[c];
+         d.nb[c] = 1;
+      }
+   }
 
    cudaDeviceSynchronize();
-   _init_mappings<<<1,1>>>(n_channels, map_h);
-   int *tmp;
-   cudaMalloc((void**)&tmp, N_PRT_OUT * sizeof(int));
-   for (int c = 0; c < n_channels; c++) {
-       cudaMemcpy (tmp, map_h[c].map_id, N_PRT_OUT * sizeof(int), cudaMemcpyHostToDevice);
-       _fill_mapids<<<1,1>>> (c, tmp);
-   }
-   cudaFree(tmp);
-   double *m, *w;
-   cudaMalloc((void**)&m, N_PRT_OUT * sizeof(double));
-   cudaMalloc((void**)&w, N_PRT_OUT * sizeof(double));
-   for (int c = 0; c < n_channels; c++) {
-       cudaMemcpy (m, map_h[c].masses, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
-       cudaMemcpy (w, map_h[c].widths, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
-       _fill_masses<<<1,1>>> (c, m, w);
-   }
-   cudaFree(m);
-   cudaFree(w);
-   cudaDeviceSynchronize();
-   _init_mapping_constants<<<1,1>>> (n_channels, s, 0, s);
-   for (int c = 0; c < n_channels; c++) {
-      set_mappings(c);
+
+   double sqrts = 1000;
+   for (int channel = 0; channel < n_channels; channel++) {
+      int nt = d.nt[channel];
+      int nb = d.nb[channel];
+      _apply_msq<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, xc, msq_d, factors_d, volumes_d);
+      cudaDeviceSynchronize();
+      //_apply_decay<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, msq_d, p_decay, factors_d); 
+      cudaDeviceSynchronize();
+      printf ("Channel: %s\n", cudaGetErrorString(cudaGetLastError()));
    }
 }
 
