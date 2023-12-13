@@ -1,3 +1,7 @@
+#include <vector>
+#include <list>
+#include <iostream>
+
 #include "phs.h"
 #include "monitoring.h"
 
@@ -6,12 +10,15 @@ int N_PRT_IN = 0;
 int N_PRT_OUT = 0;
 int PRT_STRIDE = 0;
 int ROOT_BRANCH = 0;
-int N_PART = 0;
+int N_PART = 5;
+int N_BOOSTS;
 
 __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
 __device__ int DN_PART;
 __device__ int DPRT_STRIDE;
+__device__ int DPART_STRIDE;
+__device__ int DNBOOSTS;
 __device__ int DROOT_BRANCH;
 
 #include "mappings_gpu.hpp"
@@ -20,7 +27,12 @@ int **daughters1 = NULL;
 int **daughters2 = NULL;
 int **has_children = NULL;
 
+int **boost_origins = NULL;
+int **boost_targets = NULL;
+
 static double *m_max = NULL;
+
+__device__ int *Ld = NULL;
 
 __global__ void _init_mappings (int n_channels, mapping_t *map_h) {
    mappings_d = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
@@ -287,26 +299,67 @@ __global__ void _init_fv (int N, double *factors, double *volumes, int *oks) {
   }
 }
 
-__global__ void _init_phs (int _n_prt, int _n_prt_out, int _prt_stride, int _root_branch) {
+__global__ void _init_phs (int _n_prt, int _n_prt_out, int _prt_stride, int _n_boosts, int _root_branch) {
   DN_PRT = _n_prt;
   DN_PRT_OUT = _n_prt_out;
   DPRT_STRIDE = _prt_stride;
+  DN_BOOSTS = _n_boosts;
   DROOT_BRANCH = _root_branch;
+  DN_PART = 5;
+  DN_PART_STRIDE = DN_PART * 4;
 }
 
-void set_angles_dummy (int *nboost_max, int *nboost, int branch_idx) {
-   (*nboost)++;
-   if (*nboost > *nboost_max) *nboost_max = *nboost;
+void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
+   //(*nboost)++;
+   //if (*nboost > *nboost_max) *nboost_max = *nboost;
    if (has_children[0][branch_idx]) {
       int k1 = daughters1[0][branch_idx];
       int k2 = daughters2[0][branch_idx];
       (*nboost)++;
       if (*nboost > *nboost_max) *nboost_max = *nboost;
-      set_angles_dummy (nboost_max, nboost, k1);
-      set_angles_dummy (nboost_max, nboost, k2);
+      count_max_boosts (nboost_max, nboost, k1);
+      count_max_boosts (nboost_max, nboost, k2);
       (*nboost)--;
    }
-   (*nboost)--;
+   //(*nboost)--;
+}
+
+typedef struct {
+   int b[3];
+} boost_cmd_t;
+
+void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int branch_idx, std::list<int> *parent_boost, int *boost_counter) {
+   if (has_children[channel][branch_idx]) {
+      int k1 = daughters1[channel][branch_idx];
+      int k2 = daughters2[channel][branch_idx];
+      boost_cmd_t b;
+      b.b[0] = branch_idx;
+      b.b[1] = *boost_counter;
+      b.b[2] = parent_boost->back();
+      cmd_list->push_back (b);
+      parent_boost->push_back(*boost_counter);
+      (*boost_counter)++; 
+      extract_boost_origins (cmd_list, channel, k1, parent_boost, boost_counter); 
+      extract_boost_origins (cmd_list, channel, k2, parent_boost, boost_counter); 
+      parent_boost->pop_back();
+   }
+}
+
+void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int branch_idx, std::list<int> *boost_idx, int *boost_counter) {
+   boost_cmd_t b;
+   b.b[0] = boost_idx->back();
+   b.b[1] = branch_idx;
+   b.b[2] = -1;
+   cmd_list->push_back(b);
+   if (has_children[channel][branch_idx]) {
+      int k1 = daughters1[channel][branch_idx];
+      int k2 = daughters2[channel][branch_idx];
+      boost_idx->push_back(*boost_counter);
+      (*boost_counter)++;
+      extract_boost_targets (cmd_list, channel, k1, boost_idx, boost_counter); 
+      extract_boost_targets (cmd_list, channel, k2, boost_idx, boost_counter); 
+      boost_idx->pop_back();
+   }
 }
 
 long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
@@ -322,7 +375,7 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
 
    int n_boost_max = 0;
    int dummy = 0;
-   set_angles_dummy (&n_boost_max, &dummy, ROOT_BRANCH);
+   count_max_boosts (&n_boost_max, &dummy, ROOT_BRANCH);
    // Initial boost
    n_boost_max++;;
    long long mem_boost = n_boost_max * d.n_events_gen * 16 * sizeof(double); 
@@ -345,8 +398,19 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
    return mem_tot;
 }
 
+__global__ void init_first_boost (int N) {
+   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   struct boost *LL = (struct boost*)(&Ld[16 * tid]);
+   memset (LL->l, 0, 16 * sizeof(double));
+   LL->l[0][0] = 1;
+   LL->l[1][1] = 1;
+   LL->l[2][2] = 1;
+   LL->l[3][3] = 1;
+  
+}
+
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
-   _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, ROOT_BRANCH);
 
    cudaDeviceSynchronize();
    _init_mappings<<<1,1>>>(n_channels, map_h);
@@ -372,6 +436,52 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    for (int c = 0; c < n_channels; c++) {
       set_mappings(c);
    }
+
+   //int dummy = 0;
+   //int n_boosts = 0;
+   //count_max_boosts (&n_boosts, &dummy, ROOT_BRANCH);
+   //printf ("Max Boosts: %d\n", n_boosts);
+
+   boost_origins = (int**)malloc(n_channels * sizeof(int*));
+   boost_targets = (int**)malloc(n_channels * sizeof(int*));
+   int _n_boosts;
+   std::vector<boost_cmd_t> cmd_origin;
+   std::vector<boost_cmd_t> cmd_target;
+   std::list<int> parent_stack;
+   parent_stack.push_back(0);
+   for (int c = 0; c < n_channels; c++) {
+      cmd_origin.clear();
+      int dummy = 1;
+      extract_boost_origins (&cmd_origin, c, ROOT_BRANCH, &parent_stack, &dummy);
+      _n_boosts = cmd_origin.size();
+      printf ("bcmd: %d\n", n_boosts);
+
+      for (boost_cmd_t b : cmd_origin) {
+        std::cout << b.b[0] + 1 << " " << b.b[1] << " " << b.b[2] << "\n";
+      }
+
+      boost_origins[c] = (int*)malloc(3 * _n_boosts * sizeof(int));
+      for (int i = 0; i < n_boosts; i++) {
+         boost_origins[c][3*i] = cmd_origin[i].b[0];
+         boost_origins[c][3*i+1] = cmd_origin[i].b[1];
+         boost_origins[c][3*i+2] = cmd_origin[i].b[2];
+      }
+  }
+  N_BOOSTS = _n_boosts + 1;
+
+  // parent_stack should be at 0
+  for (int c = 0; c < n_channels; c++) {
+     cmd_target.clear();
+     int dummy = 1;
+     extract_boost_targets (&cmd_target, c, ROOT_BRANCH, &parent_stack, &dummy);
+     boost_targets[c] = (int*)malloc(2 * _n_boosts * sizeof(int));
+     for (int i = 0; i < _n_boosts; i++) {
+        boost_targets[c][2*i] = cmd_target[i].b[0];
+        boost_targets[c][2*i+1] = cmd_target[i].b[1];
+     }
+  }
+
+  _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, n_boosts, ROOT_BRANCH);
 }
 
 
@@ -491,16 +601,16 @@ __global__ void _apply_msq (int N, double sqrts, int channel, int *cmd, int n_cm
      double m = mappings_d[channel].masses[branch_idx];
      double w = mappings_d[channel].widths[branch_idx];
      double f;
-     ///mappings_d[channel].comp_msq[branch_idx](x, sqrts * sqrts, m, w, msq_min, msq_max, a,
-     ///                                         &msq[DN_PART * tid + branch_idx], &f);
-     ///factors[DN_PART * tid + branch_idx] = f * factors[DN_PART * tid + k1] * factors[DN_PART * tid + k2]; 
-     ///volumes[DN_PART * tid + branch_idx] *= volumes[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] * sqrts * sqrts / (4 * TWOPI2);
+     mappings_d[channel].comp_msq[branch_idx](x, sqrts * sqrts, m, w, msq_min, msq_max, a,
+                                              &msq[DN_PART * tid + branch_idx], &f);
+     factors[DN_PART * tid + branch_idx] = f * factors[DN_PART * tid + k1] * factors[DN_PART * tid + k2]; 
+     volumes[DN_PART * tid + branch_idx] *= volumes[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] * sqrts * sqrts / (4 * TWOPI2);
   }
   // ROOT BRANCH
   int k1 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1)];
   int k2 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1) + 1];
-  //msq[DN_PART * tid + DROOT_BRANCH] = sqrts * sqrts;
-  //factors[DN_PART * tid + DROOT_BRANCH] = factors[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] / (4 * TWOPI5);
+  msq[DN_PART * tid + DROOT_BRANCH] = sqrts * sqrts;
+  factors[DN_PART * tid + DROOT_BRANCH] = factors[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] / (4 * TWOPI5);
 }
 
 __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_cmd,
@@ -522,6 +632,80 @@ __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_
      p_decay[DN_PART * tid + k2] = -sqrt(lda) / (2 * m0);
      factors[DN_PART * tid + branch_idx] *= sqrt(lda) / msq0;
   }
+}
+
+__global__ void _create_boosts (int N, double sqrts, int channel, int *cmd, int n_cmd,
+                                xcounter_t *xc, double *msq, double *p_decay, double *factors) {
+   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   for (int c = 0; c < n_cmd; c++) {
+      int branch_idx = cmd[3*n_cmd * c];
+      double p = p_decay[DN_PART * tid + branch_idx];
+      double m = sqrt(msq[DN_PART * tid + branch_idx]);
+      double bg = m > 0 ? p / m : 0;
+      double gamma = sqrt (1 + bg * bg);
+
+      int xtid = xc->nx * tid + xc->id_gpu[tid]++;
+      double x = xc->x[tid];
+      double phi = x * TWOPI;
+      double cp = cos(phi);
+      double sp = sin(phi);
+
+      double ct, st, f;
+      xtid = xc->nx * tid + xc->id_gpu[tid]++;
+      x = xc->x[xtid];
+      double *b = mappings_d[channel].b[branch_idx].a;
+      mappings_d[channel].comp_ct[branch_idx](x, sqrts * sqrts, b, &ct, &st, &f);
+      factors[DN_PART * tid + DROOT_BRANCH] *= f;
+
+      double L1[4][4];
+      L1[0][0] = gamma;
+      L1[0][1] = -bg * st;
+      L1[0][2] = 0;
+      L1[0][3] = bg * ct;
+      L1[1][0] = 0;
+      L1[1][1] = ct * cp;
+      L1[1][2] = -sp;
+      L1[1][3] = st * cp;
+      L1[2][0] = 0;
+      L1[2][1] = ct * sp;
+      L1[2][2] = cp;
+      L1[2][3] = st * sp;
+      L1[3][0] = bg;
+      L1[3][1] = -gamma * st;
+      L1[3][2] = 0;
+      L1[3][3] = gamma * ct; 
+
+      int parent_boost = cmd[3*n_cmd * c + 2];
+
+      int boost_idx = cmd[3*n_cmd * c + 1];
+      struct boost *L0 = (struct boost*)(&Ld[16 * N_BOOSTS * tid + 16 * parent_boost]);
+      struct boost *Lnew = (struct boost*)(&Ld[16 * N_BOOSTS * tid + 16 * boost_idx]);
+      memset (Lnew, 0, 16 * sizeof(double));
+      for (int i = 0; i < 4; i++) {
+         for (int j = 0; j < 4; j++) {
+            for (int k = 0; k < 4; k++) {
+               Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+            }
+         }
+      }
+   }
+}
+
+__global__ void _apply_boost_targets (int N, int channel, int *cmd, int n_cmd,
+                                      double *msq, double *p_decay, double *prt) {
+   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   for (int c = 0; c < n_cmd; c++) {
+      int boost_idx = cmd[2*n_cmd*c];
+      int branch_idx = cmd[2*n_cmd*c + 1];
+      double p = p_decay[DN_PART * tid + branch_idx];
+      double E = sqrt(msq[DN_PART * tid + branch_idx] + p * p);
+      for (int i = 0; i < 4; i++) {
+         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = Ld[16 * N_BOOSTS * tid + 16 * boost_idx + 4 * i] * E
+                                                      + Ld[16 * N_BOOSTS * tid + 16 * boost_idx + 4 * i + 3] * p;
+      }
+   }
 }
 
 void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds, 
@@ -553,6 +737,9 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds,
    cudaMalloc ((void**)&oks_d, N_PRT * d.n_events_gen * sizeof(int));
    _init_fv<<<d.n_events_gen/1024 + 1,1024>>> (d.n_events_gen, factors_d, volumes_d, oks_d);
 
+   cudaMalloc((void**)&Ld, d.n_events_gen * 16 * N_BOOSTS * sizeof(double));
+   _init_first_boost<<<d.n_events_gen/1024 + 1,1024>>>(d.n_events_gen);
+
    d.batch = (int*)malloc(n_channels * sizeof(int));
    d.nt = (int*)malloc(n_channels * sizeof(int));
    d.nb = (int*)malloc(n_channels * sizeof(int));
@@ -575,9 +762,12 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds,
       int nb = d.nb[channel];
       _apply_msq<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, xc, msq_d, factors_d, volumes_d);
       cudaDeviceSynchronize();
-      //_apply_decay<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, msq_d, p_decay, factors_d); 
+      _apply_decay<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, msq_d, p_decay, factors_d); 
       cudaDeviceSynchronize();
-      printf ("Channel: %s\n", cudaGetErrorString(cudaGetLastError()));
+      printf ("MSQ %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
+      //_create_boosts
+      _create_boosts<<<nb,nt>>>(d.batch[channel], sqrts, channel, boost_cmds_o_d, n_cmd_boosts_o,
+                                xc, msq_d, p_decay, factors_d);
    }
 }
 

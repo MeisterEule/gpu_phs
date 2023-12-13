@@ -247,9 +247,9 @@ int main (int argc, char *argv[]) {
    for (int c = 0; c < n_trees; c++) {
       printf ("Channel: %d\n", c);
       for (int cc = 0; cc < n_cmd[c]; cc++) {
-         printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0],
-                                  cmd[3 * n_cmd[c] * c + 3 * cc + 1],
-                                  cmd[3 * n_cmd[c] * c + 3 * cc + 2]);
+         printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0] + 1,
+                                  cmd[3 * n_cmd[c] * c + 3 * cc + 1] + 1,
+                                  cmd[3 * n_cmd[c] * c + 3 * cc + 2] + 1);
       }
    }
     
