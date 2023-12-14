@@ -4,15 +4,15 @@
 #include <string>
 #include <sstream>
 #include <math.h>
+#include <vector>
+#include <algorithm>
+#include <cstring>
 
 #include "monitoring.h"
 #include "phs.h"
 #include "mom_generator.h"
 
 bool verify_against_whizard = true;
-
-int *n_cmd = NULL;
-int *cmd = NULL;
 
 void do_verify_against_whizard (char *ref_file, int n_x, int n_trees, 
                                 int n_in, int n_out, int filepos_start_mom) {
@@ -61,28 +61,27 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
    //gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
-   gen_phs_from_x_gpu_2 (d, cmd, n_cmd[0], n_trees, channel_lims, n_x, x);
+   gen_phs_from_x_gpu_2 (d, n_trees, channel_lims, n_x, x);
    double t2 = mysecond();
-   return;
 
-   double t_tot = 0;
-   for (int i = 0; i < 5; i++) {
-      t_tot += gpu_timers[i];
-   }
-   printf ("GPU Timers: \n");
-   printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
-   printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
-   printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
-   printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
-   printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
-   printf ("  Total: %lf s\n", t_tot);
+   //double t_tot = 0;
+   //for (int i = 0; i < 5; i++) {
+   //   t_tot += gpu_timers[i];
+   //}
+   //printf ("GPU Timers: \n");
+   //printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
+   //printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
+   //printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
+   //printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
+   //printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
+   //printf ("  Total: %lf s\n", t_tot);
 
-   FILE *fp = fopen ("compare.gpu", "w+");
-   compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
-                           channels, n_in, n_out, pval, p, factors, volumes);
-   fclose(fp);
-   fp = NULL;
-   printf ("dt: %lf sec\n", t2 - t1);
+   //FILE *fp = fopen ("compare.gpu", "w+");
+   //compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
+   //                        channels, n_in, n_out, pval, p, factors, volumes);
+   //fclose(fp);
+   //fp = NULL;
+   //printf ("dt: %lf sec\n", t2 - t1);
 
    free (p);
    free (factors);
@@ -97,7 +96,7 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    gen_phs_from_x_cpu (sqrts, d, n_x, x, channels, factors, volumes, prt);
    t2 = mysecond();
 
-   fp = fopen ("compare.cpu", "w+");
+   FILE *fp = fopen ("compare.cpu", "w+");
    compare_phs_cpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
                            channels, n_in, n_out, pval, prt, factors, volumes);
    fclose(fp);
@@ -198,6 +197,7 @@ int main (int argc, char *argv[]) {
       }
       fprintf (logfl[LOG_INPUT], "\ndaughters2: ");
       for (int i = 0; i < N_PRT; i++) {
+         daughters2[c][i]++;
          fprintf (logfl[LOG_INPUT], "%d ", daughters2[c][i]);
       }
       fprintf (logfl[LOG_INPUT], "\nhas_children: ");
@@ -219,39 +219,7 @@ int main (int argc, char *argv[]) {
       fprintf (logfl[LOG_INPUT], "\n");
    }
 
-   n_cmd = (int*)malloc(n_trees * sizeof(int));
-   int n_tot = 0;
-   for (int c = 0; c < n_trees; c++) {
-      n_cmd[c] = 0;
-      for (int i = 0; i < N_PRT_OUT; i++) {
-         if (daughters1[c][i] > 0) n_cmd[c]++;
-      }
-      n_tot += n_cmd[c];
-   }
 
-   cmd = (int*)malloc(3 * n_tot * sizeof(int));
-   //msq_cmd_t *cmd = (msq_cmd_t*)malloc(n_tot * sizeof(msq_cmd_t));
-
-   for (int c = 0; c < n_trees; c++) {
-      int cc = 0;
-      for (int i = 0; i < N_PRT_OUT; i++) {
-         if (daughters1[c][i] > 0) {
-            cmd[3 * n_cmd[c] * c + 3 * cc + 0] = daughters1[c][i] - 1;
-            cmd[3 * n_cmd[c] * c + 3 * cc + 1] = (i+1) - daughters1[c][i] - 1;
-            cmd[3 * n_cmd[c] * c + 3 * cc + 2] = (i+1) - 1;
-            cc++;
-         } 
-      }
-   }
-
-   for (int c = 0; c < n_trees; c++) {
-      printf ("Channel: %d\n", c);
-      for (int cc = 0; cc < n_cmd[c]; cc++) {
-         printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0] + 1,
-                                  cmd[3 * n_cmd[c] * c + 3 * cc + 1] + 1,
-                                  cmd[3 * n_cmd[c] * c + 3 * cc + 2] + 1);
-      }
-   }
     
    if (verify_against_whizard) {
       do_verify_against_whizard (ref_file, n_x, n_trees, n_in, n_out, filepos);

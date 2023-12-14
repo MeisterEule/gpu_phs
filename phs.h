@@ -43,6 +43,7 @@ typedef struct {
 } phs_val_t;
 
 extern int N_PRT;
+extern int N_PART;
 extern int N_PRT_OUT;
 extern int PRT_STRIDE;
 extern int ROOT_BRANCH;
@@ -51,8 +52,12 @@ extern int **daughters1;
 extern int **daughters2;
 extern int **has_children;
 
+extern int **i_scatter;
+extern int **i_gather;
+
 extern mapping_t *mappings_host;
 
+int search_in_igather (int c, int x);
 long long count_gpu_memory_requirements (phs_dim_t d, int n_x);
 
 void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max);
@@ -63,7 +68,7 @@ void gen_phs_from_x_gpu (double sqrts, phs_dim_t d, int n_channels,
                          int *channel_lims, int n_x, double *x,
                          double *factors, double *volumes, int *oks, double *p);
 
-void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds, 
+void gen_phs_from_x_gpu_2 (phs_dim_t d, 
                            int n_channels, int *channel_lims, int n_x, double *x_h);
 
 void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels, double *factors, double *volumes, phs_prt_t *prt);

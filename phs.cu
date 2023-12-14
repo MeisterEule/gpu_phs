@@ -1,6 +1,7 @@
 #include <vector>
 #include <list>
 #include <iostream>
+#include <cstring>
 
 #include "phs.h"
 #include "monitoring.h"
@@ -11,15 +12,15 @@ int N_PRT_OUT = 0;
 int PRT_STRIDE = 0;
 int ROOT_BRANCH = 0;
 int N_PART = 5;
-int N_BOOSTS;
+int N_BOOSTS = 0;
 
 __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
 __device__ int DN_PART;
 __device__ int DPRT_STRIDE;
 __device__ int DPART_STRIDE;
-__device__ int DNBOOSTS;
-__device__ int DROOT_BRANCH;
+__device__ int DN_BOOSTS;
+//__device__ int DROOT_BRANCH;
 
 #include "mappings_gpu.hpp"
 
@@ -27,45 +28,80 @@ int **daughters1 = NULL;
 int **daughters2 = NULL;
 int **has_children = NULL;
 
-int **boost_origins = NULL;
-int **boost_targets = NULL;
+///int **boost_origins = NULL;
+///int **boost_targets = NULL;
+
+int **i_scatter = NULL;
+int **i_gather = NULL;
+
+int *n_cmd_msq = NULL;
+int *cmd_msq = NULL;
+
+int *cmd_boost_o = NULL;
+int *cmd_boost_t = NULL;
+int n_cmd_t = 0;
 
 static double *m_max = NULL;
 
-__device__ int *Ld = NULL;
+//__device__ double *Ld = NULL;
 
-__global__ void _init_mappings (int n_channels, mapping_t *map_h) {
+template <typename T> void cudaMemcpyMaskedH2D (int N, int *idx, T *field_d, T *field_h) {
+   T *tmp = (T*)malloc(N * sizeof(T));
+   for (int i = 0; i < N; i++) {
+      tmp[i] = field_h[idx[i]];
+   }
+   cudaMemcpy (field_d, tmp, N * sizeof(T), cudaMemcpyHostToDevice);
+   free(tmp);
+}
+
+int search_in_igather (int c, int x) {
+  int idx;
+  for (int cc = 0; cc < N_PART; cc++) {
+     if (i_gather[c][cc] == x) return cc;
+  }
+  return -1;
+}
+
+__global__ void _init_mappings (int n_channels, int n_part, mapping_t *map_h) {
    mappings_d = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    for (int c = 0; c < n_channels; c++) {
-      mappings_d[c].map_id = (int*)malloc(DN_PRT_OUT * sizeof(int));
-      mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(DN_PRT_OUT * sizeof(mapping_ct_sig*));
-      mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(DN_PRT_OUT * sizeof(mapping_msq_sig*));
-      mappings_d[c].a = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
-      mappings_d[c].b = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
-      mappings_d[c].masses = (double *)malloc(DN_PRT_OUT * sizeof(double));
-      mappings_d[c].widths = (double *)malloc(DN_PRT_OUT * sizeof(double));
-      for (int i = 0; i < DN_PRT_OUT; i++) {
+      //mappings_d[c].map_id = (int*)malloc(DN_PRT_OUT * sizeof(int));
+      mappings_d[c].map_id = (int*)malloc(n_part * sizeof(int));
+      //mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(DN_PRT_OUT * sizeof(mapping_ct_sig*));
+      mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(n_part * sizeof(mapping_ct_sig*));
+      //mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(DN_PRT_OUT * sizeof(mapping_msq_sig*));
+      mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(n_part * sizeof(mapping_msq_sig*));
+      //mappings_d[c].a = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
+      //mappings_d[c].b = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
+      //mappings_d[c].masses = (double *)malloc(DN_PRT_OUT * sizeof(double));
+      //mappings_d[c].widths = (double *)malloc(DN_PRT_OUT * sizeof(double));
+      mappings_d[c].a = (map_constant_t*)malloc(n_part * sizeof(map_constant_t));
+      mappings_d[c].b = (map_constant_t*)malloc(n_part * sizeof(map_constant_t));
+      mappings_d[c].masses = (double *)malloc(n_part * sizeof(double));
+      mappings_d[c].widths = (double *)malloc(n_part * sizeof(double));
+      for (int i = 0; i < n_part; i++) {
          mappings_d[c].comp_ct[i] = NULL;
          mappings_d[c].comp_msq[i] = NULL;
       }
    }
 }
 
-__global__ void _fill_mapids (int channel, int *map_ids) {
-   for (int i = 0; i < DN_PRT_OUT; i++) {
+__global__ void _fill_mapids (int channel, int n_part, int *map_ids) {
+   for (int i = 0; i < n_part; i++) {
       mappings_d[channel].map_id[i] = map_ids[i];
    }
 }
 
-__global__ void _fill_masses (int channel, double *m, double *w) {
-   for (int i = 0; i < DN_PRT_OUT; i++) {
+__global__ void _fill_masses (int channel, int n_part, double *m, double *w) {
+   for (int i = 0; i < n_part; i++) {
+      //printf ("MASS: %d %d %lf %lf\n", channel, i, m[i], w[i]);
       mappings_d[channel].masses[i] = m[i];
       mappings_d[channel].widths[i] = w[i];
    }
 }
 
 void set_mappings (int channel) {
-   for (int i = 0; i < N_PRT_OUT; i++) {
+   for (int i = 0; i < N_PART; i++) {
       _set_mappings<<<1,1>>>(channel, i);
       cudaDeviceSynchronize();
    }
@@ -215,7 +251,7 @@ __global__ void _create_new_boost (int N, int channel, int off, int branch_idx, 
    mappings_d[channel].comp_ct[branch_idx](x, s, b, &ct, &st, &f);
    // For angle mappings, there are no interdependencies between branches.
    // Accumulate only on the root branch
-   factors[DN_PRT * tid + DROOT_BRANCH] *= f;
+   factors[DN_PRT * tid] *= f;
 
    double L1[4][4];
    L1[0][0] = gamma;
@@ -303,10 +339,10 @@ __global__ void _init_phs (int _n_prt, int _n_prt_out, int _prt_stride, int _n_b
   DN_PRT = _n_prt;
   DN_PRT_OUT = _n_prt_out;
   DPRT_STRIDE = _prt_stride;
-  DN_BOOSTS = _n_boosts;
-  DROOT_BRANCH = _root_branch;
+  DN_BOOSTS = _n_boosts + 1;
+  //DROOT_BRANCH = _root_branch;
   DN_PART = 5;
-  DN_PART_STRIDE = DN_PART * 4;
+  DPART_STRIDE = DN_PART * 4;
 }
 
 void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
@@ -333,7 +369,8 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int
       int k1 = daughters1[channel][branch_idx];
       int k2 = daughters2[channel][branch_idx];
       boost_cmd_t b;
-      b.b[0] = branch_idx;
+      //b.b[0] = branch_idx;
+      b.b[0] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather(channel, branch_idx);
       b.b[1] = *boost_counter;
       b.b[2] = parent_boost->back();
       cmd_list->push_back (b);
@@ -348,7 +385,8 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int
 void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int branch_idx, std::list<int> *boost_idx, int *boost_counter) {
    boost_cmd_t b;
    b.b[0] = boost_idx->back();
-   b.b[1] = branch_idx;
+   //b.b[1] = branch_idx;
+   b.b[1] = search_in_igather(channel, branch_idx);
    b.b[2] = -1;
    cmd_list->push_back(b);
    if (has_children[channel][branch_idx]) {
@@ -398,10 +436,10 @@ long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
    return mem_tot;
 }
 
-__global__ void init_first_boost (int N) {
+__global__ void _init_first_boost (int N, double *L) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
-   struct boost *LL = (struct boost*)(&Ld[16 * tid]);
+   struct boost *LL = (struct boost*)(&L[16 * DN_BOOSTS * tid]);
    memset (LL->l, 0, 16 * sizeof(double));
    LL->l[0][0] = 1;
    LL->l[1][1] = 1;
@@ -412,27 +450,132 @@ __global__ void init_first_boost (int N) {
 
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
 
-   cudaDeviceSynchronize();
-   _init_mappings<<<1,1>>>(n_channels, map_h);
-   int *tmp;
-   cudaMalloc((void**)&tmp, N_PRT_OUT * sizeof(int));
+   n_cmd_msq = (int*)malloc(n_channels * sizeof(int));
+   int n_tot = 0;
    for (int c = 0; c < n_channels; c++) {
-       cudaMemcpy (tmp, map_h[c].map_id, N_PRT_OUT * sizeof(int), cudaMemcpyHostToDevice);
-       _fill_mapids<<<1,1>>> (c, tmp);
+      n_cmd_msq[c] = 0;
+      for (int i = 0; i < N_PRT; i++) {
+         if (daughters1[c][i] > 0) n_cmd_msq[c]++;
+      }
+      n_tot += n_cmd_msq[c];
+   }
+
+   int **d1 = (int**)malloc(n_channels * sizeof(int*));
+   int **d2 = (int**)malloc(n_channels * sizeof(int*));
+   for (int c = 0; c < n_channels; c++) {
+      d1[c] = (int*)malloc(n_cmd_msq[c] * sizeof(int));
+      d2[c] = (int*)malloc(n_cmd_msq[c] * sizeof(int));
+      int cc = 0;
+      for (int i = 0; i < N_PRT && cc < n_cmd_msq[c]; i++) {
+         if (daughters1[c][i] > 0) {
+            d1[c][cc] = daughters1[c][i];
+            d2[c][cc] = daughters2[c][i];
+            cc++;
+         }
+      }
+   }
+
+   i_gather = (int**)malloc(n_channels * sizeof(int*));
+   for (int c = 0; c < n_channels; c++) {
+      i_gather[c] = (int*)malloc(N_PART * sizeof(int));
+      i_gather[c][0] = ROOT_BRANCH;
+      int i_part = 1;
+      //for (int i = 0; i < N_PRT; i++) {
+      for (int i = 0; i < n_cmd_msq[c]; i++) {
+         if (d1[c][i] > 0) {
+           i_gather[c][i_part++] = d1[c][i] - 1;
+           i_gather[c][i_part++] = d2[c][i] - 1;
+         }
+      }  
+      printf ("i_gather%d: ", c);
+      for (int i = 0; i < N_PART; i++) {
+         printf ("%d ", i_gather[c][i]);
+      } 
+      printf ("\n");
+   }
+
+
+   //i_scatter = (int**)malloc(n_channels * sizeof(int*));
+   //for (int c = 0; c < n_channels; c++) {
+   //   i_scatter[c] = (int*)malloc(N_PRT * sizeof(int));
+   //   memset(i_scatter[c], 0, N_PRT * sizeof(int));
+   //   i_scatter[c][ROOT_BRANCH] = 0;
+   //   int cc = 1;
+   //   for (int i = 0; i < ROOT_BRANCH; i++) {
+   //      if (daughters1[c][i] > 0) i_scatter[c][i] = cc++;
+   //   }
+   //}
+
+   cmd_msq = (int*)malloc(3 * n_tot * sizeof(int));
+   //msq_cmd_t *cmd = (msq_cmd_t*)malloc(n_tot * sizeof(msq_cmd_t));
+
+   for (int c = 0; c < n_channels; c++) {
+      for (int i = 0; i < n_cmd_msq[c]; i++) {
+         // Find index of daughter in i_gather
+         int b1, b2, b3;
+         b1 = search_in_igather (c, d1[c][i] - 1);
+         b2 = search_in_igather (c, d2[c][i] - 1);
+                
+         int tmp = i_gather[c][b1] + i_gather[c][b2] + 1;
+         if (tmp == ROOT_BRANCH) {
+            b3 = 0;         
+         } else {
+            b3 = search_in_igather (c, tmp);
+         }
+         cmd_msq[3*n_cmd_msq[c]*c + 3*i + 0] = b1;
+         cmd_msq[3*n_cmd_msq[c]*c + 3*i + 1] = b2;
+         cmd_msq[3*n_cmd_msq[c]*c + 3*i + 2] = b3;
+      }
+   }
+
+   for (int c = 0; c < n_channels; c++) {
+      printf ("Channel: %d\n", c);
+      for (int cc = 0; cc < n_cmd_msq[c]; cc++) {
+         ///printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0] + 1,
+         ///                         cmd[3 * n_cmd[c] * c + 3 * cc + 1] + 1,
+         ///                         cmd[3 * n_cmd[c] * c + 3 * cc + 2] + 1);
+         printf ("%d %d -> %d\n", cmd_msq[3 * n_cmd_msq[c] * c + 3 * cc + 0],
+                                  cmd_msq[3 * n_cmd_msq[c] * c + 3 * cc + 1],
+                                  cmd_msq[3 * n_cmd_msq[c] * c + 3 * cc + 2]);
+      }
+   }
+
+   for (int c = 0; c < n_channels; c++) {
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         daughters1[c][i]--;
+         daughters2[c][i]--;
+      }
+   }
+
+
+   cudaDeviceSynchronize();
+   _init_mappings<<<1,1>>>(n_channels, N_PART, map_h);
+   int *tmp;
+   cudaMalloc((void**)&tmp, N_PART * sizeof(int));
+   for (int c = 0; c < n_channels; c++) {
+       //cudaMemcpy (tmp, map_h[c].map_id, N_PRT_OUT * sizeof(int), cudaMemcpyHostToDevice);
+       cudaMemcpyMaskedH2D<int> (N_PART, i_gather[c], tmp, map_h[c].map_id);
+       _fill_mapids<<<1,1>>> (c, N_PART, tmp);
    }
    cudaFree(tmp);
+
    double *m, *w;
-   cudaMalloc((void**)&m, N_PRT_OUT * sizeof(double));
-   cudaMalloc((void**)&w, N_PRT_OUT * sizeof(double));
+   cudaMalloc((void**)&m, N_PART * sizeof(double));
+   cudaMalloc((void**)&w, N_PART * sizeof(double));
    for (int c = 0; c < n_channels; c++) {
-       cudaMemcpy (m, map_h[c].masses, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
-       cudaMemcpy (w, map_h[c].widths, N_PRT_OUT * sizeof(double), cudaMemcpyHostToDevice);
-       _fill_masses<<<1,1>>> (c, m, w);
+       //printf ("%lf %lf %lf %lf %lf\n", map_h[c].masses[i_gather[c][0]],
+       //                                 map_h[c].masses[i_gather[c][1]],
+       //                                 map_h[c].masses[i_gather[c][2]],
+       //                                 map_h[c].masses[i_gather[c][3]],
+       //                                 map_h[c].masses[i_gather[c][4]]);
+       cudaMemcpyMaskedH2D<double> (N_PART, i_gather[c], m, map_h[c].masses);
+       cudaMemcpyMaskedH2D<double> (N_PART, i_gather[c], w, map_h[c].widths);
+       _fill_masses<<<1,1>>> (c, N_PART, m, w);
    }
    cudaFree(m);
    cudaFree(w);
    cudaDeviceSynchronize();
-   _init_mapping_constants<<<1,1>>> (n_channels, s, 0, s);
+   _init_mapping_constants<<<1,1>>> (n_channels, N_PART, s, 0, s);
    for (int c = 0; c < n_channels; c++) {
       set_mappings(c);
    }
@@ -442,8 +585,8 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    //count_max_boosts (&n_boosts, &dummy, ROOT_BRANCH);
    //printf ("Max Boosts: %d\n", n_boosts);
 
-   boost_origins = (int**)malloc(n_channels * sizeof(int*));
-   boost_targets = (int**)malloc(n_channels * sizeof(int*));
+   //boost_origins = (int**)malloc(n_channels * sizeof(int*));
+   //boost_targets = (int**)malloc(n_channels * sizeof(int*));
    int _n_boosts;
    std::vector<boost_cmd_t> cmd_origin;
    std::vector<boost_cmd_t> cmd_target;
@@ -454,34 +597,50 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
       int dummy = 1;
       extract_boost_origins (&cmd_origin, c, ROOT_BRANCH, &parent_stack, &dummy);
       _n_boosts = cmd_origin.size();
-      printf ("bcmd: %d\n", n_boosts);
+      printf ("bcmd: %d\n", _n_boosts);
 
       for (boost_cmd_t b : cmd_origin) {
-        std::cout << b.b[0] + 1 << " " << b.b[1] << " " << b.b[2] << "\n";
+        std::cout << b.b[0] << " " << b.b[1] << " " << b.b[2] << "\n";
       }
 
-      boost_origins[c] = (int*)malloc(3 * _n_boosts * sizeof(int));
-      for (int i = 0; i < n_boosts; i++) {
-         boost_origins[c][3*i] = cmd_origin[i].b[0];
-         boost_origins[c][3*i+1] = cmd_origin[i].b[1];
-         boost_origins[c][3*i+2] = cmd_origin[i].b[2];
+      if (cmd_boost_o == NULL) cmd_boost_o = (int*)malloc(3 * _n_boosts * n_channels * sizeof(int));
+
+      //boost_origins[c] = (int*)malloc(3 * _n_boosts * sizeof(int));
+      for (int i = 0; i < _n_boosts; i++) {
+         cmd_boost_o[3*_n_boosts*c + 3*i] = cmd_origin[i].b[0];
+         cmd_boost_o[3*_n_boosts*c + 3*i + 1] = cmd_origin[i].b[1];
+         cmd_boost_o[3*_n_boosts*c + 3*i + 2] = cmd_origin[i].b[2];
+         //boost_origins[c][3*i] = cmd_origin[i].b[0];
+         //boost_origins[c][3*i+1] = cmd_origin[i].b[1];
+         //boost_origins[c][3*i+2] = cmd_origin[i].b[2];
       }
   }
-  N_BOOSTS = _n_boosts + 1;
+  N_BOOSTS = _n_boosts;
 
   // parent_stack should be at 0
   for (int c = 0; c < n_channels; c++) {
      cmd_target.clear();
      int dummy = 1;
      extract_boost_targets (&cmd_target, c, ROOT_BRANCH, &parent_stack, &dummy);
-     boost_targets[c] = (int*)malloc(2 * _n_boosts * sizeof(int));
-     for (int i = 0; i < _n_boosts; i++) {
-        boost_targets[c][2*i] = cmd_target[i].b[0];
-        boost_targets[c][2*i+1] = cmd_target[i].b[1];
+     n_cmd_t = cmd_target.size();
+     //boost_targets[c] = (int*)malloc(2 * _n_boosts * sizeof(int));
+     if (cmd_boost_t == NULL) cmd_boost_t = (int*)malloc(2 * n_cmd_t * n_channels * sizeof(int));
+     printf ("Targets: %d\n", c);
+     for (boost_cmd_t b : cmd_target) {
+        std::cout << b.b[0] << " " << b.b[1] << "\n";
+      }
+
+     for (int i = 0; i < n_cmd_t; i++) {
+        //boost_targets[c][2*i] = cmd_target[i].b[0];
+        //boost_targets[c][2*i+1] = cmd_target[i].b[1];
+        cmd_boost_t[2*n_cmd_t*c + 2*i] = cmd_target[i].b[0];
+        cmd_boost_t[2*n_cmd_t*c + 2*i + 1] = cmd_target[i].b[1];
      }
   }
 
-  _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, n_boosts, ROOT_BRANCH);
+  printf ("N_BOOSTS: %d\n", N_BOOSTS);
+  printf ("N_TARGETS: %d\n", n_cmd_t);
+  _init_phs<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, N_BOOSTS, ROOT_BRANCH);
 }
 
 
@@ -597,20 +756,25 @@ __global__ void _apply_msq (int N, double sqrts, int channel, int *cmd, int n_cm
      int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
      int xtid = xc->nx * tid + xc->id_gpu[tid]++;
      double x = xc->x[xtid];
+     if (tid == 0) printf ("c: %d, x: %lf\n", c, x);
      double *a = mappings_d[channel].a[branch_idx].a;
      double m = mappings_d[channel].masses[branch_idx];
      double w = mappings_d[channel].widths[branch_idx];
+     if (tid == 0) printf ("c: %d, m: %lf, w: %lf\n", c, m, w);
      double f;
+     if (tid == 0) printf ("c: %d, branch_idx: %d, map_id: %d\n",
+                            c, branch_idx, mappings_d[channel].map_id[branch_idx]);
      mappings_d[channel].comp_msq[branch_idx](x, sqrts * sqrts, m, w, msq_min, msq_max, a,
                                               &msq[DN_PART * tid + branch_idx], &f);
+     if (tid == 0) printf ("Mapping computed: %d %lf\n", branch_idx, msq[DN_PART * tid + branch_idx]);
      factors[DN_PART * tid + branch_idx] = f * factors[DN_PART * tid + k1] * factors[DN_PART * tid + k2]; 
      volumes[DN_PART * tid + branch_idx] *= volumes[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] * sqrts * sqrts / (4 * TWOPI2);
   }
   // ROOT BRANCH
   int k1 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1)];
   int k2 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1) + 1];
-  msq[DN_PART * tid + DROOT_BRANCH] = sqrts * sqrts;
-  factors[DN_PART * tid + DROOT_BRANCH] = factors[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] / (4 * TWOPI5);
+  msq[DN_PART * tid] = sqrts * sqrts;
+  factors[DN_PART * tid] = factors[DN_PART * tid + k1] * volumes[DN_PART * tid + k2] / (4 * TWOPI5);
 }
 
 __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_cmd,
@@ -635,18 +799,22 @@ __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_
 }
 
 __global__ void _create_boosts (int N, double sqrts, int channel, int *cmd, int n_cmd,
-                                xcounter_t *xc, double *msq, double *p_decay, double *factors) {
+                                xcounter_t *xc, double *msq, double *p_decay,
+                                double *Ld, double *factors) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
+   if (tid == 0) printf ("N_CMD: %d\n", n_cmd);
    for (int c = 0; c < n_cmd; c++) {
-      int branch_idx = cmd[3*n_cmd * c];
+      int branch_idx = cmd[3*n_cmd*channel + 3*c];
       double p = p_decay[DN_PART * tid + branch_idx];
       double m = sqrt(msq[DN_PART * tid + branch_idx]);
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
 
+      //if (channel == 0 && tid == 0) printf ("id_gpu: %d\n", xc->id_gpu[tid]);
       int xtid = xc->nx * tid + xc->id_gpu[tid]++;
-      double x = xc->x[tid];
+      double x = xc->x[xtid];
+      //if (channel == 0 && tid == 0) printf ("xphi: %lf\n", x);
       double phi = x * TWOPI;
       double cp = cos(phi);
       double sp = sin(phi);
@@ -656,7 +824,7 @@ __global__ void _create_boosts (int N, double sqrts, int channel, int *cmd, int 
       x = xc->x[xtid];
       double *b = mappings_d[channel].b[branch_idx].a;
       mappings_d[channel].comp_ct[branch_idx](x, sqrts * sqrts, b, &ct, &st, &f);
-      factors[DN_PART * tid + DROOT_BRANCH] *= f;
+      factors[DN_PART * tid] *= f;
 
       double L1[4][4];
       L1[0][0] = gamma;
@@ -676,11 +844,12 @@ __global__ void _create_boosts (int N, double sqrts, int channel, int *cmd, int 
       L1[3][2] = 0;
       L1[3][3] = gamma * ct; 
 
-      int parent_boost = cmd[3*n_cmd * c + 2];
+      int parent_boost = cmd[3*n_cmd*channel + 3*c + 2];
 
-      int boost_idx = cmd[3*n_cmd * c + 1];
-      struct boost *L0 = (struct boost*)(&Ld[16 * N_BOOSTS * tid + 16 * parent_boost]);
-      struct boost *Lnew = (struct boost*)(&Ld[16 * N_BOOSTS * tid + 16 * boost_idx]);
+      int boost_idx = cmd[3*n_cmd*channel + 3*c + 1];
+      if (tid == 0) printf ("boost_idx: %d %d\n", 3*n_cmd * c + 1, boost_idx);
+      struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
+      struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
       memset (Lnew, 0, 16 * sizeof(double));
       for (int i = 0; i < 4; i++) {
          for (int j = 0; j < 4; j++) {
@@ -693,22 +862,22 @@ __global__ void _create_boosts (int N, double sqrts, int channel, int *cmd, int 
 }
 
 __global__ void _apply_boost_targets (int N, int channel, int *cmd, int n_cmd,
-                                      double *msq, double *p_decay, double *prt) {
+                                      double *Ld, double *msq, double *p_decay, double *prt) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
    for (int c = 0; c < n_cmd; c++) {
-      int boost_idx = cmd[2*n_cmd*c];
-      int branch_idx = cmd[2*n_cmd*c + 1];
+      int boost_idx = cmd[2*n_cmd*channel + 2*c];
+      int branch_idx = cmd[2*n_cmd*channel + 2*c + 1];
       double p = p_decay[DN_PART * tid + branch_idx];
       double E = sqrt(msq[DN_PART * tid + branch_idx] + p * p);
       for (int i = 0; i < 4; i++) {
-         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = Ld[16 * N_BOOSTS * tid + 16 * boost_idx + 4 * i] * E
-                                                      + Ld[16 * N_BOOSTS * tid + 16 * boost_idx + 4 * i + 3] * p;
+         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = Ld[16 * DN_BOOSTS * tid + 16 * boost_idx + 4 * i] * E
+                                                      + Ld[16 * DN_BOOSTS * tid + 16 * boost_idx + 4 * i + 3] * p;
       }
    }
 }
 
-void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds, 
+void gen_phs_from_x_gpu_2 (phs_dim_t d, 
                            int n_channels, int *channel_lims, int n_x, double *x_h) {
    double *x_d;
    int *id_d;
@@ -720,12 +889,21 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds,
    cudaMemset (id_d, 0, d.n_events_gen * sizeof(int));
    _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
 
-   int *cmds_d;
-   cudaMalloc((void**)&cmds_d, 3 * n_channels * n_cmds * sizeof(int));
-   cudaMemcpy(cmds_d, cmds, 3 * n_channels * n_cmds * sizeof(int), cudaMemcpyHostToDevice);
+   int *cmds_msq_d, *cmds_boost_o_d, *cmds_boost_t_d;
+   cudaMalloc((void**)&cmds_msq_d, 3 * n_channels * n_cmd_msq[0] * sizeof(int));
+   cudaMalloc((void**)&cmds_boost_o_d, 3 * n_channels * N_BOOSTS * sizeof(int));
+   cudaMalloc((void**)&cmds_boost_t_d, 2 * n_channels * n_cmd_t * sizeof(int));
+   cudaMemcpy(cmds_msq_d, cmd_msq, 3 * n_channels * n_cmd_msq[0] * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy(cmds_boost_o_d, cmd_boost_o, 3 * n_channels * N_BOOSTS * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 2 * n_channels * n_cmd_t * sizeof(int), cudaMemcpyHostToDevice);
+
+   double *prt_d;
+   cudaMalloc((void**)&prt_d, N_PART * d.n_events_gen * 4 * sizeof(double));
+   cudaMemset (prt_d, 0, N_PART * d.n_events_gen * 4 * sizeof(double));
 
    double *msq_d;
    cudaMalloc((void**)&msq_d, N_PART * d.n_events_gen * sizeof(double)); 
+   cudaMemset(msq_d, 0, N_PART * d.n_events_gen * sizeof(double));
    double *p_decay;
    cudaMalloc((void**)&p_decay, N_PART * d.n_events_gen * sizeof(double));
 
@@ -737,8 +915,11 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds,
    cudaMalloc ((void**)&oks_d, N_PRT * d.n_events_gen * sizeof(int));
    _init_fv<<<d.n_events_gen/1024 + 1,1024>>> (d.n_events_gen, factors_d, volumes_d, oks_d);
 
-   cudaMalloc((void**)&Ld, d.n_events_gen * 16 * N_BOOSTS * sizeof(double));
-   _init_first_boost<<<d.n_events_gen/1024 + 1,1024>>>(d.n_events_gen);
+   double *Ld;
+   cudaMalloc((void**)&Ld, d.n_events_gen * 16 * (N_BOOSTS + 1) * sizeof(double));
+   _init_first_boost<<<d.n_events_gen/1024 + 1,1024>>>(d.n_events_gen, Ld); // Does not work with static __device__
+   cudaDeviceSynchronize();
+   printf ("Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    d.batch = (int*)malloc(n_channels * sizeof(int));
    d.nt = (int*)malloc(n_channels * sizeof(int));
@@ -760,14 +941,63 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d, int *cmds, int n_cmds,
    for (int channel = 0; channel < n_channels; channel++) {
       int nt = d.nt[channel];
       int nb = d.nb[channel];
-      _apply_msq<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, xc, msq_d, factors_d, volumes_d);
+      _apply_msq<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_msq_d, n_cmd_msq[0], xc, msq_d, factors_d, volumes_d);
       cudaDeviceSynchronize();
-      _apply_decay<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_d, n_cmds, msq_d, p_decay, factors_d); 
+      double *foo = (double*)malloc(N_PART * d.batch[channel] * sizeof(double));
+      cudaMemcpy (foo, msq_d, N_PART * d.batch[channel] * sizeof(double), cudaMemcpyDeviceToHost);
+   
+      if (channel == 0) {
+         printf ("msq: ");
+         for (int i = 0; i < N_PART; i++) {
+            printf ("%lf ", foo[i]); 
+         }
+         printf ("\n");
+      }
+      _apply_decay<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_msq_d, n_cmd_msq[0], msq_d, p_decay, factors_d); 
       cudaDeviceSynchronize();
       printf ("MSQ %d: %s\n", channel, cudaGetErrorString(cudaGetLastError()));
+      cudaMemcpy (foo, p_decay, N_PART * d.batch[channel] * sizeof(double), cudaMemcpyDeviceToHost);
+   
+      if (channel == 0) {
+         printf ("decay: ");
+         for (int i = 0; i < N_PART; i++) {
+            printf ("%lf ", foo[i]); 
+         }
+         printf ("\n");
+      }
+
       //_create_boosts
-      _create_boosts<<<nb,nt>>>(d.batch[channel], sqrts, channel, boost_cmds_o_d, n_cmd_boosts_o,
-                                xc, msq_d, p_decay, factors_d);
+      _create_boosts<<<nb,nt>>>(d.batch[channel], sqrts, channel, cmds_boost_o_d, N_BOOSTS,
+                                xc, msq_d, p_decay, Ld, factors_d);
+      cudaDeviceSynchronize();
+      printf ("Create boost: %s\n", cudaGetErrorString(cudaGetLastError()));
+      free(foo);
+      int nbo = N_BOOSTS + 1;
+      foo = (double*)malloc(nbo * 16 * sizeof(double));
+      cudaMemcpy(foo, Ld, nbo * 16 * sizeof(double), cudaMemcpyDeviceToHost);
+      if (channel == 0) {
+         for (int b = 0; b < nbo; b++) {
+            for (int i = 0; i < 4; i++) {
+               printf ("%lf %lf %lf %lf\n", foo[16*b + 4*i], foo[16*b + 4*i+1],
+                                            foo[16*b + 4*i+2], foo[16*b + 4*i+3]);
+            }
+         }
+      }
+      _apply_boost_targets<<<nb,nt>>> (d.batch[channel], channel, cmds_boost_t_d, n_cmd_t,
+                            Ld, msq_d, p_decay, prt_d);
+
+      cudaDeviceSynchronize();
+      printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
+      free(foo);
+      foo = (double*)malloc(N_PART * 4 * d.batch[channel] * sizeof(double));
+      cudaMemcpy(foo, prt_d, N_PART * 4 * d.batch[channel] * sizeof(double), cudaMemcpyDeviceToHost);
+      if (channel == 0) {
+         printf ("%lf %lf %lf %lf\n", foo[0], foo[1], foo[2], foo[3]);
+         printf ("%lf %lf %lf %lf\n", foo[4], foo[5], foo[6], foo[7]);
+         printf ("%lf %lf %lf %lf\n", foo[8], foo[9], foo[10], foo[11]);
+         printf ("%lf %lf %lf %lf\n", foo[12], foo[13], foo[14], foo[15]);
+         printf ("%lf %lf %lf %lf\n", foo[16], foo[17], foo[18], foo[19]);
+      }
    }
 }
 

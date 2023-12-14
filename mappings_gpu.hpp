@@ -86,10 +86,10 @@ __device__ void mapping_ct_from_x_collinear (double x, double s, double *b, doub
    }
 }
 
-__global__ void _init_mapping_constants (int n_channels, double s, double msq_min, double msq_max) {
+__global__ void _init_mapping_constants (int n_channels, int n_part, double s, double msq_min, double msq_max) {
    double msq0;
    for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < DN_PRT_OUT; i++) {
+      for (int i = 0; i < n_part; i++) {
          int map_id = mappings_d[c].map_id[i];
          double *a1 = mappings_d[c].a[i].a;
          double *a2 = mappings_d[c].a[i].a + 1;
@@ -160,6 +160,7 @@ __global__ void _init_mapping_constants (int n_channels, double s, double msq_mi
                *b3 = 0;
                break;
          }
+      if (c == 0) printf ("%d %lf %lf %lf %lf\n", map_id, m, *a1, *a2, *a3);
       }
    } 
 } 
