@@ -75,16 +75,9 @@ int search_in_igather (int c, int x) {
 __global__ void _init_mappings (int n_channels, int n_part, mapping_t *map_h) {
    mappings_d = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    for (int c = 0; c < n_channels; c++) {
-      //mappings_d[c].map_id = (int*)malloc(DN_PRT_OUT * sizeof(int));
       mappings_d[c].map_id = (int*)malloc(n_part * sizeof(int));
-      //mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(DN_PRT_OUT * sizeof(mapping_ct_sig*));
       mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(n_part * sizeof(mapping_ct_sig*));
-      //mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(DN_PRT_OUT * sizeof(mapping_msq_sig*));
       mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(n_part * sizeof(mapping_msq_sig*));
-      //mappings_d[c].a = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
-      //mappings_d[c].b = (map_constant_t*)malloc(DN_PRT_OUT * sizeof(map_constant_t));
-      //mappings_d[c].masses = (double *)malloc(DN_PRT_OUT * sizeof(double));
-      //mappings_d[c].widths = (double *)malloc(DN_PRT_OUT * sizeof(double));
       mappings_d[c].a = (map_constant_t*)malloc(n_part * sizeof(map_constant_t));
       mappings_d[c].b = (map_constant_t*)malloc(n_part * sizeof(map_constant_t));
       mappings_d[c].masses = (double *)malloc(n_part * sizeof(double));
@@ -508,6 +501,27 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
       printf ("\n");
    }
 
+   i_scatter = (int**)malloc(n_channels * sizeof(int*));
+   int n_out = N_BRANCHES - N_BRANCHES_INTERNAL;
+   for (int c = 0; c < n_channels; c++) {
+      i_scatter[c] = (int*)malloc(n_out * sizeof(int));
+      for (int i = 0; i < n_out; i++) {
+         i_scatter[c][i] = -1;
+         int idx = pow(2,i) - 1;
+         for (int j = 0; j < N_BRANCHES; j++) {
+            if (i_gather[c][j] == idx) {
+               i_scatter[c][i] = j;
+               break;
+            }
+         } 
+      }
+
+      printf ("i_scatter%d: ", c);
+      for (int i = 0; i < n_out; i++) {
+         printf ("%d ", i_scatter[c][i]);
+      } 
+      printf ("\n");
+   }
 
    //i_scatter = (int**)malloc(n_channels * sizeof(int*));
    //for (int c = 0; c < n_channels; c++) {
@@ -1027,8 +1041,7 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d,
          }
       }
       _apply_boost_targets<<<nb,nt>>> (d.batch[channel], channel, cmds_boost_t_d, N_LAMBDA_OUT,
-      //_apply_boost_targets<<<1,1>>> (d.batch[channel], channel, cmds_boost_t_d, N_LAMBDA_OUT,
-                                     Ld, msq_d, p_decay, prt_d);
+                                       Ld, msq_d, p_decay, prt_d);
 
       cudaDeviceSynchronize();
       printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
