@@ -202,7 +202,6 @@ void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
          printf ("%lf %lf %lf %lf\n", L_new[1][0], L_new[1][1], L_new[1][2], L_new[1][3]);         
          printf ("%lf %lf %lf %lf\n", L_new[2][0], L_new[2][1], L_new[2][2], L_new[2][3]);         
          printf ("%lf %lf %lf %lf\n", L_new[3][0], L_new[3][1], L_new[3][2], L_new[3][3]);         
-         first = 0;
       }
       
       set_angles_cpu (d, channel, k1, xc, s, msq, factor, p_decay, prt, L_new);
@@ -329,6 +328,13 @@ void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
 
       } 
       if (ok) set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
+      if (first) {
+         printf ("%lf %lf %lf %lf\n", prt[0].p[0], prt[0].p[1], prt[0].p[2], prt[0].p[3]);
+         printf ("%lf %lf %lf %lf\n", prt[1].p[0], prt[1].p[1], prt[1].p[2], prt[1].p[3]);
+         printf ("%lf %lf %lf %lf\n", prt[2].p[0], prt[2].p[1], prt[2].p[2], prt[2].p[3]);
+         printf ("%lf %lf %lf %lf\n", prt[3].p[0], prt[3].p[1], prt[3].p[2], prt[3].p[3]);
+      }
+      first = 0;
    }
 
    free (p_decay);

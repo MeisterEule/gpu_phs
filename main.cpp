@@ -162,6 +162,13 @@ int main (int argc, char *argv[]) {
    PRT_STRIDE = 4 * N_PRT;
    ROOT_BRANCH = N_PRT_OUT - 1;
 
+   N_BRANCHES = 2*n_out - 1;
+   N_BRANCHES_INTERNAL = N_BRANCHES - n_out;
+   N_MSQ = n_out - 2;
+   N_LAMBDA_IN = n_out - 1;
+   N_BOOSTS = N_LAMBDA_IN + 1;
+   N_LAMBDA_OUT = N_BRANCHES;
+
    fprintf (logfl[LOG_INPUT], "n_channels: %d\n", n_channels);
    fprintf (logfl[LOG_INPUT], "n_in: %d\n", n_in);
    fprintf (logfl[LOG_INPUT], "n_out: %d\n", n_out);

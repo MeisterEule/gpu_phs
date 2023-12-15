@@ -47,6 +47,12 @@ extern int N_PART;
 extern int N_PRT_OUT;
 extern int PRT_STRIDE;
 extern int ROOT_BRANCH;
+extern int N_BRANCHES;
+extern int N_MSQ;
+extern int N_BOOSTS;
+extern int N_BRANCHES_INTERNAL;
+extern int N_LAMBDA_IN;
+extern int N_LAMBDA_OUT; 
 
 extern int **daughters1;
 extern int **daughters2;
