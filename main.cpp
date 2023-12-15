@@ -64,7 +64,7 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
    //gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
-   gen_phs_from_x_gpu_2 (d, n_trees, channel_lims, n_x, x, factors, volumes, p);
+   gen_phs_from_x_gpu_2 (d, n_trees, channels, n_x, x, factors, volumes, p);
    double t2 = mysecond();
 
    //double t_tot = 0;
