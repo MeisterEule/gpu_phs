@@ -52,16 +52,19 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
 
    long long mem_gpu = count_gpu_memory_requirements (d, n_x);
 
-   double *p = (double*)malloc(PRT_STRIDE * d.n_events_gen * sizeof(double));
-   double *factors = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
-   double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
+   //double *p = (double*)malloc(PRT_STRIDE * d.n_events_gen * sizeof(double));
+   //double *factors = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
+   //double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
+   double *p = (double*)malloc(4 * n_out * d.n_events_gen * sizeof(double));
+   double *factors = (double*)malloc(d.n_events_gen * sizeof(double)); 
+   double *volumes = (double*)malloc(d.n_events_gen * sizeof(double)); 
    int *oks = (int*)malloc(N_PRT * d.n_events_gen * sizeof(int));
 
    init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
    //gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
-   gen_phs_from_x_gpu_2 (d, n_trees, channel_lims, n_x, x);
+   gen_phs_from_x_gpu_2 (d, n_trees, channel_lims, n_x, x, factors, volumes, p);
    double t2 = mysecond();
 
    //double t_tot = 0;

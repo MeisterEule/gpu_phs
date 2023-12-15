@@ -75,7 +75,8 @@ void gen_phs_from_x_gpu (double sqrts, phs_dim_t d, int n_channels,
                          double *factors, double *volumes, int *oks, double *p);
 
 void gen_phs_from_x_gpu_2 (phs_dim_t d, 
-                           int n_channels, int *channel_lims, int n_x, double *x_h);
+                           int n_channels, int *channel_lims, int n_x, double *x_h,
+                           double *factors_h, double *volumes_h, double *p_h);
 
 void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels, double *factors, double *volumes, phs_prt_t *prt);
 
