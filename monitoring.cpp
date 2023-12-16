@@ -28,6 +28,36 @@ void final_logfiles () {
 
 #define EPSILON 0.0001
 
+void compare_phs_gpu_vs_ref_2 (FILE *fp, int n_events, int *channels,
+                               int n_in, int n_out, phs_val_t *pval,
+                               double *pgen, double *factors, double *volumes) {
+   int n_events_failed = 0;
+   for (int i = 0; i < n_events; i++) {
+      for (int n = 0; n < n_out; n++) {
+         double *pv = pval[i].prt[n_in+n].p;
+         double *pg = &pgen[4*n_out*i + 4*n];
+         if (fabs(pv[0] - pg[0]) > EPSILON || fabs(pv[1] - pg[1]) > EPSILON 
+          || fabs(pv[2] - pg[2]) > EPSILON || fabs(pv[3] - pg[3]) > EPSILON) {
+            fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", n_in + n + 1, i, channels[i]);
+            fprintf (fp, "Validation: %lf %lf %lf %lf\n", pv[0], pv[1], pv[2], pv[3]);
+            fprintf (fp, "Generated:  %lf %lf %lf %lf\n", pg[0], pg[1], pg[2], pg[3]);
+            n_events_failed++;
+         }
+      }
+  
+      if (fabs (pval[i].f - factors[i]) > EPSILON) {
+         fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
+         n_events_failed++;
+      }
+
+      if (fabs (pval[i].v - volumes[i]) > EPSILON) {
+         fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
+         n_events_failed++;
+      }
+   }
+   fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events);
+}
+
 void compare_phs_gpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                              int *channels, int n_in, int n_out, phs_val_t *pval,
                              double *prt, double *factors, double *volumes) {

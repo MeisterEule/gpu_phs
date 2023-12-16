@@ -79,11 +79,12 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    //printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
    //printf ("  Total: %lf s\n", t_tot);
 
-   //FILE *fp = fopen ("compare.gpu", "w+");
+   FILE *fp = fopen ("compare.gpu", "w+");
    //compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
    //                        channels, n_in, n_out, pval, p, factors, volumes);
-   //fclose(fp);
-   //fp = NULL;
+   compare_phs_gpu_vs_ref_2 (fp, d.n_events_gen, channels, n_in, n_out, pval, p, factors, volumes);
+   fclose(fp);
+   fp = NULL;
    //printf ("dt: %lf sec\n", t2 - t1);
 
    free (p);
@@ -99,7 +100,7 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    gen_phs_from_x_cpu (sqrts, d, n_x, x, channels, factors, volumes, prt);
    t2 = mysecond();
 
-   FILE *fp = fopen ("compare.cpu", "w+");
+   fp = fopen ("compare.cpu", "w+");
    compare_phs_cpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
                            channels, n_in, n_out, pval, prt, factors, volumes);
    fclose(fp);
