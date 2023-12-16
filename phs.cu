@@ -467,6 +467,8 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    //   }
    //   n_tot += n_cmd_msq[c];
    //}
+   _set_device_constants<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
+                                  N_LAMBDA_IN, N_LAMBDA_OUT, ROOT_BRANCH);
 
    int **d1 = (int**)malloc(n_channels * sizeof(int*));
    int **d2 = (int**)malloc(n_channels * sizeof(int*));
@@ -670,9 +672,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
   }
 
   //printf ("N_BOOSTS: %d\n", N_BOOSTS);
-  printf ("N_TARGETS: %d\n", N_LAMBDA_OUT);
-  _set_device_constants<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
-                                 N_LAMBDA_IN, N_LAMBDA_OUT, ROOT_BRANCH);
+  ///printf ("N_TARGETS: %d\n", N_LAMBDA_OUT);
 }
 
 
