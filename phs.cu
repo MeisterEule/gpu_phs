@@ -496,11 +496,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
            i_gather[c][i_part++] = d2[c][i] - 1;
          }
       }  
-      printf ("i_gather%d: ", c);
+      fprintf (logfl[LOG_INPUT], "i_gather[%d]: ", c);
       for (int i = 0; i < N_BRANCHES; i++) {
-         printf ("%d ", i_gather[c][i]);
+         fprintf (logfl[LOG_INPUT], "%d ", i_gather[c][i]);
       } 
-      printf ("\n");
+      fprintf (logfl[LOG_INPUT], "\n");
    }
 
    i_scatter = (int**)malloc(n_channels * sizeof(int*));
@@ -518,11 +518,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
          } 
       }
 
-      printf ("i_scatter%d: ", c);
+      fprintf (logfl[LOG_INPUT], "i_scatter%d: ", c);
       for (int i = 0; i < n_out; i++) {
-         printf ("%d ", i_scatter[c][i]);
+         fprintf (logfl[LOG_INPUT], "%d ", i_scatter[c][i]);
       } 
-      printf ("\n");
+      fprintf (logfl[LOG_INPUT], "\n");
    }
 
    //i_scatter = (int**)malloc(n_channels * sizeof(int*));
@@ -559,14 +559,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    }
 
    for (int c = 0; c < n_channels; c++) {
-      printf ("Channel: %d\n", c);
+      fprintf (logfl[LOG_INPUT], "Channel: %d\n", c);
       for (int cc = 0; cc < N_BRANCHES_INTERNAL; cc++) {
-         ///printf ("%d %d -> %d\n", cmd[3 * n_cmd[c] * c + 3 * cc + 0] + 1,
-         ///                         cmd[3 * n_cmd[c] * c + 3 * cc + 1] + 1,
-         ///                         cmd[3 * n_cmd[c] * c + 3 * cc + 2] + 1);
-         printf ("%d %d -> %d\n", cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 0],
-                                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 1],
-                                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 2]);
+         fprintf (logfl[LOG_INPUT], "%d %d -> %d\n", cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 0],
+                                     cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 1],
+                                     cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 2]);
       }
    }
 
@@ -632,22 +629,19 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
       } else {
       }
 
+      fprintf (logfl[LOG_INPUT], "N_LAMBDA_IN: %d, cmd_origin.size(): %d\n", N_LAMBDA_IN, cmd_origin.size());
+      fprintf (logfl[LOG_INPUT], "Origins[%d]\n", c);
       for (boost_cmd_t b : cmd_origin) {
-        std::cout << b.b[0] << " " << b.b[1] << " " << b.b[2] << "\n";
+        fprintf (logfl[LOG_INPUT], "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
       }
 
 
-      //boost_origins[c] = (int*)malloc(3 * _n_boosts * sizeof(int));
       for (int i = 0; i < N_LAMBDA_IN; i++) {
          cmd_boost_o[3*N_LAMBDA_IN*c + 3*i] = cmd_origin[i].b[0];
          cmd_boost_o[3*N_LAMBDA_IN*c + 3*i + 1] = cmd_origin[i].b[1];
          cmd_boost_o[3*N_LAMBDA_IN*c + 3*i + 2] = cmd_origin[i].b[2];
-         //boost_origins[c][3*i] = cmd_origin[i].b[0];
-         //boost_origins[c][3*i+1] = cmd_origin[i].b[1];
-         //boost_origins[c][3*i+2] = cmd_origin[i].b[2];
       }
   }
-  //N_BOOSTS = _n_boosts;
 
   // parent_stack should be at 0
   cmd_boost_t = (int*)malloc(2 * N_LAMBDA_OUT * n_channels * sizeof(int));
@@ -655,24 +649,18 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
      cmd_target.clear();
      int dummy = 1;
      extract_boost_targets (&cmd_target, c, ROOT_BRANCH, &parent_stack, &dummy);
-     //n_cmd_t = cmd_target.size();
-     //boost_targets[c] = (int*)malloc(2 * _n_boosts * sizeof(int));
-     printf ("N_LAMBDA_OUT: %d, cmd_target.size(): %d\n", N_LAMBDA_OUT, cmd_target.size());
-     printf ("Targets: %d\n", c);
+    
+     fprintf (logfl[LOG_INPUT], "N_LAMBDA_OUT: %d, cmd_target.size(): %d\n", N_LAMBDA_OUT, cmd_target.size());
+     fprintf (logfl[LOG_INPUT], "Targets[%d]\n", c);
      for (boost_cmd_t b : cmd_target) {
-        std::cout << b.b[0] << " " << b.b[1] << "\n";
+        fprintf (logfl[LOG_INPUT], "%d %d\n", b.b[0], b.b[1]);
       }
 
      for (int i = 0; i < N_LAMBDA_OUT; i++) {
-        //boost_targets[c][2*i] = cmd_target[i].b[0];
-        //boost_targets[c][2*i+1] = cmd_target[i].b[1];
         cmd_boost_t[2*N_LAMBDA_OUT*c + 2*i] = cmd_target[i].b[0];
         cmd_boost_t[2*N_LAMBDA_OUT*c + 2*i + 1] = cmd_target[i].b[1];
      }
   }
-
-  //printf ("N_BOOSTS: %d\n", N_BOOSTS);
-  ///printf ("N_TARGETS: %d\n", N_LAMBDA_OUT);
 }
 
 
@@ -1011,19 +999,19 @@ void gen_phs_from_x_gpu_2 (phs_dim_t d,
    for (int i = 0; i < d.n_events_gen; i++) {
       int c = channels[i];
       for (int j = 0; j < n_out; j++) {
-         if (i < 2) {
-            printf ("%d <- %d\n", 4*n_out*i + 4*j + 0, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 0);
-            printf ("%d <- %d\n", 4*n_out*i + 4*j + 1, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 1);
-            printf ("%d <- %d\n", 4*n_out*i + 4*j + 2, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 2);
-            printf ("%d <- %d\n", 4*n_out*i + 4*j + 3, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 3);
-            printf ("---------\n");
-         }
+         ///if (i < 2) {
+         ///   printf ("%d <- %d\n", 4*n_out*i + 4*j + 0, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 0);
+         ///   printf ("%d <- %d\n", 4*n_out*i + 4*j + 1, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 1);
+         ///   printf ("%d <- %d\n", 4*n_out*i + 4*j + 2, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 2);
+         ///   printf ("%d <- %d\n", 4*n_out*i + 4*j + 3, 4*N_BRANCHES*i + 4*i_scatter[c][j] + 3);
+         ///   printf ("---------\n");
+         ///}
          p_h[4*n_out*i + 4*j + 0] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 0];
          p_h[4*n_out*i + 4*j + 1] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 1];
          p_h[4*n_out*i + 4*j + 2] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 2];
          p_h[4*n_out*i + 4*j + 3] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 3];
       }
-      if (i < 2) printf ("---------\n");
+      ///if (i < 2) printf ("---------\n");
    }
 
    ///free(copy);

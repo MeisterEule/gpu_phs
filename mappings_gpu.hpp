@@ -160,7 +160,6 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double s, d
                *b3 = 0;
                break;
          }
-      if (c == 0) printf ("%d %lf %lf %lf %lf\n", map_id, m, *a1, *a2, *a3);
       }
    } 
 } 
