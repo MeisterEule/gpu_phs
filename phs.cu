@@ -536,50 +536,21 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
 
    std::vector<int> branch_idx_extract;
    for (int c = 0; c < n_channels; c++) {
-      ///for (int i = 0; i < N_BRANCHES_INTERNAL; i++) {
-      ///   // Find index of daughter in i_gather
-      ///   int b1, b2, b3;
-      ///   b1 = search_in_igather (c, d1[c][i] - 1);
-      ///   b2 = search_in_igather (c, d2[c][i] - 1);
-      ///          
-      ///   int tmp = i_gather[c][b1] + i_gather[c][b2] + 1;
-      ///   if (tmp == ROOT_BRANCH) {
-      ///      b3 = 0;         
-      ///   } else {
-      ///      b3 = search_in_igather (c, tmp);
-      ///   }
-      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1;
-      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2;
-      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = b3;
-      ///}
-
-         printf ("Channel: %d ---\n", c);
-         branch_idx_extract.clear();
-         extract_msq_branch_idx (&branch_idx_extract, c, ROOT_BRANCH);
-         printf ("extracted: \n");
-         //for (int branch_idx : branch_idx_extract) {
-         for (int i = 0; i < branch_idx_extract.size(); i++) {
-            int branch_idx = branch_idx_extract[i];
-            printf ("%d ", branch_idx);
-            for (int j = 0; j < N_BRANCHES_INTERNAL; j++) {
-               int b1 = search_in_igather (c, d1[c][j] - 1);
-               int b2 = search_in_igather (c, d2[c][j] - 1);
-               if (i_gather[c][b1] + i_gather[c][b2] + 1 == branch_idx) {
-                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1; 
-                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2; 
-                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather (c, branch_idx);
-               }
-            }
-         }
-         printf ("\n");
-
-         printf ("order of commands: \n");
-         for (int i = 0; i < N_BRANCHES_INTERNAL; i++) {
-            printf ("%d ", i_gather[c][cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2]]);
-         }
-         printf ("\n");
-      }
-   //}
+     branch_idx_extract.clear();
+     extract_msq_branch_idx (&branch_idx_extract, c, ROOT_BRANCH);
+     for (int i = 0; i < branch_idx_extract.size(); i++) {
+        int branch_idx = branch_idx_extract[i];
+        for (int j = 0; j < N_BRANCHES_INTERNAL; j++) {
+           int b1 = search_in_igather (c, d1[c][j] - 1);
+           int b2 = search_in_igather (c, d2[c][j] - 1);
+           if (i_gather[c][b1] + i_gather[c][b2] + 1 == branch_idx) {
+              cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1; 
+              cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2; 
+              cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather (c, branch_idx);
+           }
+        }
+     }
+   }
 
 
    for (int c = 0; c < n_channels; c++) {
