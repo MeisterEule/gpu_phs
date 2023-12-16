@@ -312,6 +312,8 @@ void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
    for (int i = 0; i < d.n_events_gen; i++) {
       bool ok = true;
       int c = channels[i];
+      memset (msq, 0, N_PRT * sizeof(double));
+      memset (p_decay, 0, N_PRT * sizeof(double));
       set_msq_cpu (d, c, ROOT_BRANCH, &xc, sqrts, msq, factors + i, volumes + i, &ok, p_decay);
       if (i == 0) {
          printf ("MSQ CPU: ");
