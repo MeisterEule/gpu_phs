@@ -368,6 +368,14 @@ void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
    //(*nboost)--;
 }
 
+void extract_msq_branch_idx (std::vector<int> *cmd_list, int channel, int branch_idx) {
+   int k1 = daughters1[channel][branch_idx];
+   int k2 = daughters2[channel][branch_idx];
+   if (has_children[channel][k1]) extract_msq_branch_idx (cmd_list, channel, k1);
+   if (has_children[channel][k2]) extract_msq_branch_idx (cmd_list, channel, k2);
+   cmd_list->push_back(branch_idx); 
+}
+
 typedef struct {
    int b[3];
 } boost_cmd_t;
@@ -458,15 +466,6 @@ __global__ void _init_first_boost (int N, double *L) {
 
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
 
-   //n_cmd_msq = (int*)malloc(n_channels * sizeof(int));
-   //int n_tot = 0;
-   //for (int c = 0; c < n_channels; c++) {
-   //   n_cmd_msq[c] = 0;
-   //   for (int i = 0; i < N_PRT; i++) {
-   //      if (daughters1[c][i] > 0) n_cmd_msq[c]++;
-   //   }
-   //   n_tot += n_cmd_msq[c];
-   //}
    _set_device_constants<<<1,1>>>(N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
                                   N_LAMBDA_IN, N_LAMBDA_OUT, ROOT_BRANCH);
 
@@ -525,38 +524,63 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
       fprintf (logfl[LOG_INPUT], "\n");
    }
 
-   //i_scatter = (int**)malloc(n_channels * sizeof(int*));
-   //for (int c = 0; c < n_channels; c++) {
-   //   i_scatter[c] = (int*)malloc(N_PRT * sizeof(int));
-   //   memset(i_scatter[c], 0, N_PRT * sizeof(int));
-   //   i_scatter[c][ROOT_BRANCH] = 0;
-   //   int cc = 1;
-   //   for (int i = 0; i < ROOT_BRANCH; i++) {
-   //      if (daughters1[c][i] > 0) i_scatter[c][i] = cc++;
-   //   }
-   //}
-
    cmd_msq = (int*)malloc(3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
    //msq_cmd_t *cmd = (msq_cmd_t*)malloc(n_tot * sizeof(msq_cmd_t));
 
    for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < N_BRANCHES_INTERNAL; i++) {
-         // Find index of daughter in i_gather
-         int b1, b2, b3;
-         b1 = search_in_igather (c, d1[c][i] - 1);
-         b2 = search_in_igather (c, d2[c][i] - 1);
-                
-         int tmp = i_gather[c][b1] + i_gather[c][b2] + 1;
-         if (tmp == ROOT_BRANCH) {
-            b3 = 0;         
-         } else {
-            b3 = search_in_igather (c, tmp);
-         }
-         cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1;
-         cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2;
-         cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = b3;
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         daughters1[c][i]--;
+         daughters2[c][i]--;
       }
    }
+
+   std::vector<int> branch_idx_extract;
+   for (int c = 0; c < n_channels; c++) {
+      ///for (int i = 0; i < N_BRANCHES_INTERNAL; i++) {
+      ///   // Find index of daughter in i_gather
+      ///   int b1, b2, b3;
+      ///   b1 = search_in_igather (c, d1[c][i] - 1);
+      ///   b2 = search_in_igather (c, d2[c][i] - 1);
+      ///          
+      ///   int tmp = i_gather[c][b1] + i_gather[c][b2] + 1;
+      ///   if (tmp == ROOT_BRANCH) {
+      ///      b3 = 0;         
+      ///   } else {
+      ///      b3 = search_in_igather (c, tmp);
+      ///   }
+      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1;
+      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2;
+      ///   cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = b3;
+      ///}
+
+         printf ("Channel: %d ---\n", c);
+         branch_idx_extract.clear();
+         extract_msq_branch_idx (&branch_idx_extract, c, ROOT_BRANCH);
+         printf ("extracted: \n");
+         //for (int branch_idx : branch_idx_extract) {
+         for (int i = 0; i < branch_idx_extract.size(); i++) {
+            int branch_idx = branch_idx_extract[i];
+            printf ("%d ", branch_idx);
+            for (int j = 0; j < N_BRANCHES_INTERNAL; j++) {
+               int b1 = search_in_igather (c, d1[c][j] - 1);
+               int b2 = search_in_igather (c, d2[c][j] - 1);
+               if (i_gather[c][b1] + i_gather[c][b2] + 1 == branch_idx) {
+                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 0] = b1; 
+                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 1] = b2; 
+                  cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather (c, branch_idx);
+               }
+            }
+         }
+         printf ("\n");
+
+         printf ("order of commands: \n");
+         for (int i = 0; i < N_BRANCHES_INTERNAL; i++) {
+            printf ("%d ", i_gather[c][cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*i + 2]]);
+         }
+         printf ("\n");
+      }
+   //}
+
 
    for (int c = 0; c < n_channels; c++) {
       fprintf (logfl[LOG_INPUT], "Channel: %d\n", c);
@@ -566,14 +590,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
                                      cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 2]);
       }
    }
-
-   for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < N_PRT_OUT; i++) {
-         daughters1[c][i]--;
-         daughters2[c][i]--;
-      }
-   }
-
 
    cudaDeviceSynchronize();
    _init_mappings<<<1,1>>>(n_channels, map_h);
