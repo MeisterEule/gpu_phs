@@ -91,4 +91,33 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
    fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events_gen);
 }
 
+long long required_gpu_mem (phs_dim_t d, int n_x) {
+   long long mem = 0;
+   // Random numbers and counter indices
+   mem += n_x * d.n_events_gen * sizeof(double);
+   mem += d.n_events_gen * sizeof(int);
+   // Commands are negligible
+   // Momenta
+   mem += N_BRANCHES * d.n_events_gen * 4 * sizeof(double);
+   // Kinematic scratchpads (msq, p_decay, boosts);
+   mem += 2 * N_BRANCHES * d.n_events_gen * sizeof(double);
+   mem += 16 * N_BOOSTS * d.n_events_gen * sizeof(double);
+   // Channel ids
+   mem += d.n_events_gen * sizeof(int);
+   // factors & volumes
+   mem += 2 * N_BRANCHES * d.n_events_gen * sizeof(double);
+   // oks
+   mem += N_BRANCHES * d.n_events_gen * sizeof(bool);
+   return mem;
+}
 
+long long required_cpu_mem (phs_dim_t d, int n_x) {
+   long long mem = 0;
+   // Random numbers
+   mem += n_x * d.n_events_gen * sizeof(double);
+   // prt
+   mem += 4 * N_PRT * d.n_events_gen * sizeof(double);
+   // factors, volumes
+   mem += 2 * d.n_events_gen * sizeof(double);
+   return mem;
+}

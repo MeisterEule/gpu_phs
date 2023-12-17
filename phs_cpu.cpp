@@ -107,10 +107,6 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
       double this_msq = 0;
       int id = xc->id_cpu++;
       double x = xc->x[id];
-      if (id == 0) {
-         printf ("x: %lf\n", x);
-         printf ("map_id: %d\n", mappings_host[channel].map_id[branch_idx]);
-      }      
       double f;
       double *a = mappings_host[channel].a[branch_idx].a;
       mapping_msq_from_x_cpu (mappings_host[channel].map_id[branch_idx], x, sqrts * sqrts, msq_min, msq_max, a, &msq[branch_idx], factor);
@@ -159,7 +155,6 @@ void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
       double gamma = sqrt (1 + bg * bg);
       int id = xc->id_cpu++;
       double x = xc->x[id];
-      if (first) printf ("xphi: %lf\n", x);
       double phi = x * TWOPI;
       double cp = cos(phi);
       double sp = sin(phi);
@@ -197,12 +192,12 @@ void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
             }
          }
       }
-      if (first) {
-         printf ("%lf %lf %lf %lf\n", L_new[0][0], L_new[0][1], L_new[0][2], L_new[0][3]);         
-         printf ("%lf %lf %lf %lf\n", L_new[1][0], L_new[1][1], L_new[1][2], L_new[1][3]);         
-         printf ("%lf %lf %lf %lf\n", L_new[2][0], L_new[2][1], L_new[2][2], L_new[2][3]);         
-         printf ("%lf %lf %lf %lf\n", L_new[3][0], L_new[3][1], L_new[3][2], L_new[3][3]);         
-      }
+      ///if (first) {
+      ///   printf ("%lf %lf %lf %lf\n", L_new[0][0], L_new[0][1], L_new[0][2], L_new[0][3]);         
+      ///   printf ("%lf %lf %lf %lf\n", L_new[1][0], L_new[1][1], L_new[1][2], L_new[1][3]);         
+      ///   printf ("%lf %lf %lf %lf\n", L_new[2][0], L_new[2][1], L_new[2][2], L_new[2][3]);         
+      ///   printf ("%lf %lf %lf %lf\n", L_new[3][0], L_new[3][1], L_new[3][2], L_new[3][3]);         
+      ///}
       
       set_angles_cpu (d, channel, k1, xc, s, msq, factor, p_decay, prt, L_new);
       set_angles_cpu (d, channel, k2, xc, s, msq, factor, p_decay, prt, L_new);
@@ -285,13 +280,13 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
    } 
 }
 
+#define BYTES_PER_GB 1073741824
 void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
-                         int *channels, double *factors, double *volumes, phs_prt_t *prt) {
+                         int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
    m_max = (double*)malloc(N_PRT * sizeof(double));
 
-   memset (prt, 0, N_PRT * 4 * d.n_events_gen * sizeof(double));
    memset (p_decay, 0, N_PRT * sizeof(double));
    memset (msq, 0, N_PRT * sizeof(double));
    memset (m_max, 0, N_PRT * sizeof(double));
@@ -310,33 +305,12 @@ void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
    L0[3][3] = 1;
 
    for (int i = 0; i < d.n_events_gen; i++) {
-      bool ok = true;
+      oks[i] = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
-      set_msq_cpu (d, c, ROOT_BRANCH, &xc, sqrts, msq, factors + i, volumes + i, &ok, p_decay);
-      if (i == 0) {
-         printf ("MSQ CPU: ");
-         for (int j = 0; j < N_PRT; j++) {
-            printf ("%lf ", msq[j]);
-         }
-         printf ("\n");
-
-         printf ("DECAY CPU: ");
-         for (int j = 0; j < N_PRT; j++) {
-            printf ("%lf ", p_decay[j]);
-         }
-         printf ("\n");
-
-      } 
-      if (ok) set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
-      if (first) {
-         printf ("%lf %lf %lf %lf\n", prt[0].p[0], prt[0].p[1], prt[0].p[2], prt[0].p[3]);
-         printf ("%lf %lf %lf %lf\n", prt[1].p[0], prt[1].p[1], prt[1].p[2], prt[1].p[3]);
-         printf ("%lf %lf %lf %lf\n", prt[2].p[0], prt[2].p[1], prt[2].p[2], prt[2].p[3]);
-         printf ("%lf %lf %lf %lf\n", prt[3].p[0], prt[3].p[1], prt[3].p[2], prt[3].p[3]);
-      }
-      first = 0;
+      set_msq_cpu (d, c, ROOT_BRANCH, &xc, sqrts, msq, factors + i, volumes + i, oks + i, p_decay);
+      if (oks[i]) set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
    }
 
    free (p_decay);

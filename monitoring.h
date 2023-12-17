@@ -5,6 +5,8 @@
 
 #include "phs.h"
 
+#define BYTES_PER_GB 1073741824
+
 enum {TIME_KERNEL_MSQ = 0,
       TIME_KERNEL_ANG = 1,
       TIME_MEMCPY_IN = 2,
@@ -39,4 +41,6 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                              int *channels, int n_in, int n_out, phs_val_t *pval,
                              phs_prt_t *prt, double *factors, double *volumes);
 
+long long required_gpu_mem (phs_dim_t d, int n_x);
+long long required_cpu_mem (phs_dim_t d, int n_x);
 #endif

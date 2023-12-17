@@ -17,11 +17,11 @@ enum {MAP_NO=0,
       MAP_ONSHELL=99};
 
 typedef struct {
-   int n_events_val;
-   int n_events_gen;
-   int *nt; // n_threads
-   int *nb; // n_blocks 
-   int *batch;
+   long long n_events_val;
+   long long n_events_gen;
+   //int *nt; // n_threads
+   //int *nb; // n_blocks 
+   //int *batch;
 } phs_dim_t;
 
 typedef struct {
@@ -64,7 +64,6 @@ extern int **i_gather;
 extern mapping_t *mappings_host;
 
 int search_in_igather (int c, int x);
-long long count_gpu_memory_requirements (phs_dim_t d, int n_x);
 
 void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max);
 void set_mappings (int channel);
@@ -74,7 +73,9 @@ void gen_phs_from_x_gpu (phs_dim_t d,
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
-void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels, double *factors, double *volumes, phs_prt_t *prt);
+void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels,
+                         double *factors, double *volumes, bool *oks, phs_prt_t *prt);
+
 
 
 #endif
