@@ -31,13 +31,9 @@ do { \
    gpu_timers[id] += mysecond(); \
 } while (0)
 
-void compare_phs_gpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
-                             int *channels, int n_in, int n_out, phs_val_t *pval,
-                             double *prt, double *factors, double *volumes);
-
-void compare_phs_gpu_vs_ref_2 (FILE *fp, int n_events, int *channels,
-                               int n_in, int n_out, phs_val_t *pval,
-                               double *pgen, double *factors, double *volumes);
+void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
+                             int n_in, int n_out, phs_val_t *pval,
+                             double *pgen, double *factors, double *volumes);
 
 void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                              int *channels, int n_in, int n_out, phs_val_t *pval,

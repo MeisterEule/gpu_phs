@@ -52,40 +52,21 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
 
    long long mem_gpu = count_gpu_memory_requirements (d, n_x);
 
-   //double *p = (double*)malloc(PRT_STRIDE * d.n_events_gen * sizeof(double));
-   //double *factors = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
-   //double *volumes = (double*)malloc(N_PRT * d.n_events_gen * sizeof(double)); 
    double *p = (double*)malloc(4 * n_out * d.n_events_gen * sizeof(double));
    double *factors = (double*)malloc(d.n_events_gen * sizeof(double)); 
    double *volumes = (double*)malloc(d.n_events_gen * sizeof(double)); 
-   int *oks = (int*)malloc(N_PRT * d.n_events_gen * sizeof(int));
+   bool *oks = (bool*)malloc(N_PRT * d.n_events_gen * sizeof(bool));
 
    init_mapping_constants_cpu (n_trees, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_trees, mappings_host, sqrts * sqrts);
    double t1 = mysecond();
-   //gen_phs_from_x_gpu (sqrts, d, n_trees, channel_lims, n_x, x, factors, volumes, oks, p);
-   gen_phs_from_x_gpu_2 (d, n_trees, channels, n_x, x, factors, volumes, p);
+   gen_phs_from_x_gpu (d, n_trees, channels, n_x, x, factors, volumes, oks, p);
    double t2 = mysecond();
 
-   //double t_tot = 0;
-   //for (int i = 0; i < 5; i++) {
-   //   t_tot += gpu_timers[i];
-   //}
-   //printf ("GPU Timers: \n");
-   //printf ("  Memcpy In: %lf s\n", gpu_timers[TIME_MEMCPY_IN]);
-   //printf ("  Memcpy Out: %lf s\n", gpu_timers[TIME_MEMCPY_OUT]);
-   //printf ("  Memcpy Boosts: %lf s\n", gpu_timers[TIME_MEMCPY_BOOST]);
-   //printf ("  Msq Kernels: %lf s\n", gpu_timers[TIME_KERNEL_MSQ]);
-   //printf ("  Ang Kernels: %lf s\n", gpu_timers[TIME_KERNEL_ANG]);
-   //printf ("  Total: %lf s\n", t_tot);
-
    FILE *fp = fopen ("compare.gpu", "w+");
-   //compare_phs_gpu_vs_ref (fp, d.n_events_val, d.n_events_gen,
-   //                        channels, n_in, n_out, pval, p, factors, volumes);
-   compare_phs_gpu_vs_ref_2 (fp, d.n_events_gen, channels, n_in, n_out, pval, p, factors, volumes);
+   compare_phs_gpu_vs_ref (fp, d.n_events_gen, channels, n_in, n_out, pval, p, factors, volumes);
    fclose(fp);
    fp = NULL;
-   //printf ("dt: %lf sec\n", t2 - t1);
 
    free (p);
    free (factors);
