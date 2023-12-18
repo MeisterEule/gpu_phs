@@ -220,42 +220,6 @@ void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int
    }
 }
 
-//long long count_gpu_memory_requirements (phs_dim_t d, int n_x) {
-//#define BYTES_PER_GB 1073741824
-//   long long mem_m_max = N_PRT * d.n_events_gen * sizeof(double);
-//   long long mem_xc = n_x * d.n_events_gen * (sizeof(double) + sizeof(int));
-//   long long mem_prt = PRT_STRIDE * d.n_events_gen * sizeof(double);
-//   long long mem_pdecay = N_PRT * d.n_events_gen * sizeof(double);
-//   long long mem_msq = N_PRT * d.n_events_gen * sizeof(double);
-//   long long mem_factors = N_PRT * d.n_events_gen * sizeof(double);
-//   long long mem_volumes = N_PRT * d.n_events_gen * sizeof(double);
-//   long long mem_oks = N_PRT * d.n_events_gen * sizeof(double);
-//
-//   int n_boost_max = 0;
-//   int dummy = 0;
-//   count_max_boosts (&n_boost_max, &dummy, ROOT_BRANCH);
-//   // Initial boost
-//   n_boost_max++;;
-//   long long mem_boost = n_boost_max * d.n_events_gen * 16 * sizeof(double); 
-//
-//   long long mem_tot = mem_m_max + mem_xc + mem_prt 
-//                     + mem_pdecay + mem_msq + mem_factors
-//                     + mem_volumes + mem_oks + mem_boost;
-//
-//   fprintf (logfl[LOG_CUDA], "GPU Memory requirements [GiB]: \n");
-//   fprintf (logfl[LOG_CUDA], "   m_max: %lf\n", (double)mem_m_max / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   x_counter: %lf\n", (double)mem_xc / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   momenta tree: %lf\n", (double)mem_prt / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   p_decay: %lf\n", (double)mem_pdecay / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   msq: %lf\n", (double)mem_msq / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   factors: %lf\n", (double)mem_factors / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   volumes: %lf\n", (double)mem_volumes / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   oks: %lf\n", (double)mem_oks / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "   Boosts: %lf\n", (double)mem_boost / BYTES_PER_GB);
-//   fprintf (logfl[LOG_CUDA], "    Total: %lf\n", (double)mem_tot / BYTES_PER_GB);
-//   return mem_tot;
-//}
-
 __global__ void _init_first_boost (int N, double *L) {
    int tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
@@ -329,7 +293,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    }
 
    cmd_msq = (int*)malloc(3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
-   //msq_cmd_t *cmd = (msq_cmd_t*)malloc(n_tot * sizeof(msq_cmd_t));
 
    for (int c = 0; c < n_channels; c++) {
       for (int i = 0; i < N_PRT_OUT; i++) {
@@ -371,7 +334,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    int *tmp;
    cudaMalloc((void**)&tmp, N_BRANCHES * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
-       //cudaMemcpy (tmp, map_h[c].map_id, N_PRT_OUT * sizeof(int), cudaMemcpyHostToDevice);
        cudaMemcpyMaskedH2D<int> (N_BRANCHES, i_gather[c], tmp, map_h[c].map_id);
        _fill_mapids<<<1,1>>> (c, N_BRANCHES, tmp);
    }
@@ -476,12 +438,6 @@ __global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_
      p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
      p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
      factors[DN_BRANCHES * tid + branch_idx] *= sqrt(lda) / msq0;
-     if (tid == 0) {
-        printf ("msq0 >= 0: %d\n", msq0 >= 0);
-        printf ("lda > 0: %d\n", lda > 0);
-        printf ("m0 > m1 + m2: %d\n", m0 > m1 + m2);
-        printf ("m0 <= mm_max: %d\n", m0 <= mm_max);
-     }
      oks[tid] &= (msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= mm_max);
   }
 

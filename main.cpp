@@ -42,6 +42,10 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
       channels[i] = c;
    }
 
+   long long mem_gpu = required_gpu_mem (d, n_x);
+   long long mem_cpu = required_cpu_mem (d, n_x);
+   printf ("Required GPU memory: %lf GiB\n", (double)mem_gpu / BYTES_PER_GB);
+   printf ("Required CPU memory: %lf GiB\n", (double)mem_cpu / BYTES_PER_GB);
 
    fprintf (logfl[LOG_INPUT], "channel_limits: ");
    for (int i = 0; i < n_trees + 1; i++) {
@@ -49,6 +53,7 @@ void do_verify_against_whizard (char *ref_file, int n_x, int n_trees,
    }
    fprintf (logfl[LOG_INPUT], "\n");
    fprintf (logfl[LOG_INPUT], "n_events to generate: %lld\n", d.n_events_gen);
+   fprintf (stdout, "n_events to generate: %lld\n", d.n_events_gen);
 
    //long long mem_gpu = count_gpu_memory_requirements (d, n_x);
 

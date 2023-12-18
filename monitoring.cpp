@@ -107,7 +107,7 @@ long long required_gpu_mem (phs_dim_t d, int n_x) {
    // factors & volumes
    mem += 2 * N_BRANCHES * d.n_events_gen * sizeof(double);
    // oks
-   mem += N_BRANCHES * d.n_events_gen * sizeof(bool);
+   mem += d.n_events_gen * sizeof(bool);
    return mem;
 }
 
