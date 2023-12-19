@@ -75,6 +75,8 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
    }
 }
 
+static int first = 1;
+
 void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
                   xcounter_t *xc, double sqrts, double *msq,
                   double *factor, double *volume, bool *ok, double *p_decay) {
@@ -98,6 +100,7 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
       memset (m_max, 0, N_PRT * sizeof(double));
       msq[branch_idx] = sqrts * sqrts;
       m_max[branch_idx] = sqrts;
+      if (first) printf ("msq0: %lf\n", msq[branch_idx]);
       *factor = f1 * f2;
       *volume = v1 * v2 / (4 * TWOPI5);
    } else {
@@ -110,6 +113,7 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
       double f;
       double *a = mappings_host[channel].a[branch_idx].a;
       mapping_msq_from_x_cpu (mappings_host[channel].map_id[branch_idx], x, sqrts * sqrts, msq_min, msq_max, a, &msq[branch_idx], factor);
+      if (first) printf ("msq0: %lf\n", msq[branch_idx]);
       if (this_msq >= 0) {
          *factor *= f1 * f2;
          *volume = v1 * v2  * sqrts * sqrts / (4 * TWOPI2);
@@ -122,10 +126,12 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
       double this_msq = msq[branch_idx];
       double msq1 = msq[k1];
       double msq2 = msq[k2];
+      if (first) printf ("msq0: %lf, msq1: %lf, msq2: %lf\n", this_msq, msq1, msq2);
       double m1 = sqrt(msq1);
       double m2 = sqrt(msq2);
       double m = sqrt(this_msq);
       double lda = (this_msq - msq1 - msq2) * (this_msq - msq1 - msq2) - 4 * msq1 * msq2;
+      if (first) printf ("lda: %lf\n", lda);
       if (lda > 0 && m > m1 + m2 && m <= m_max[branch_idx]) {
         p_decay[k1] = sqrt(lda) / (2 * m);
         p_decay[k2] = -p_decay[k1];
@@ -136,7 +142,6 @@ void set_msq_cpu (phs_dim_t d, int channel, int branch_idx,
    }
 }
 
-static int first = 1;
 
 void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
                      xcounter_t *xc, double s, double *msq, double *factor,
@@ -309,8 +314,14 @@ void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
+      if (i == 1) printf ("xcpu: %lf %lf %lf %lf %lf\n", xc.x[5], xc.x[6], xc.x[7], xc.x[8], xc.x[9]);
       set_msq_cpu (d, c, ROOT_BRANCH, &xc, sqrts, msq, factors + i, volumes + i, oks + i, p_decay);
-      if (oks[i]) set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
+      if (oks[i]) {
+         set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
+      } else {
+        //printf ("Not ok CPU: %d\n", i);
+      }
+      first = 0;
    }
 
    free (p_decay);

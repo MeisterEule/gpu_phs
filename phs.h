@@ -69,7 +69,7 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 
-void gen_phs_from_x_gpu (phs_dim_t d, 
+void gen_phs_from_x_gpu (int n_events, 
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
