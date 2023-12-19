@@ -113,29 +113,12 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
    d.n_events_gen = n_events_per_channel * n_channels;
    d.n_events_val = n_events_per_channel * n_channels;
 
-   long long mem_gpu = required_gpu_mem (d, n_x);
-   long long mem_cpu = required_cpu_mem (d, n_x);
-   printf ("Required GPU memory: %lf GiB\n", (double)mem_gpu / BYTES_PER_GB);
-   printf ("Required CPU memory: %lf GiB\n", (double)mem_cpu / BYTES_PER_GB);
-
    double sqrts = 1000;
    init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
 
-   printf ("Allocate x: %d * %d = %d\n", n_x, d.n_events_gen, n_x * d.n_events_gen);
    double *x = (double*)malloc(n_x * d.n_events_gen * sizeof(double));
 
    init_rng (n_channels, n_x);
-   //rng_generate (n_channels, n_x, n_events_per_channel, x);
-
-   //printf ("Generated: \n");
-   //for (int i = 0; i < d.n_events_gen; i++) {
-   //   printf ("%lf\n", x[i]);
-   //}
-
-   //srand(1234);
-   //for (int i = 0; i < n_x * d.n_events_gen; i++) {
-   //   x[i] = (double)rand()/RAND_MAX;
-   //}
 
    int *channels = (int*)malloc(d.n_events_gen * sizeof(int));
    for (int i = 0; i < d.n_events_gen; i++) {
@@ -150,34 +133,27 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
 
    init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts * sqrts);
-   //t1 = mysecond();
-   //gen_phs_from_x_gpu (d, n_channels, channels, n_x, x, factors, volumes, oks, p);
-   //t2 = mysecond();
-
-   //printf ("GPU: %lf sec\n", t2 - t1);
-   //int n_ok = 0;
-   //for (int i = 0; i < d.n_events_gen; i++) {
-   //  if (oks[i]) n_ok++;
-   //}
-   //printf ("Valid events: %d / %d\n", n_ok, d.n_events_gen);
-
-   //update_weights (n_x, n_channels, d.n_events_gen, channels, x, oks);
 
    int n_ok;
-   //for (int i = 0; i < n_trials; i++) {
-   //   rng_generate (n_channels, n_x, n_trial_events, x);
-   //   gen_phs_from_x_gpu (n_channels * n_trial_events, n_channels, channels,
-   //                       n_x, x, factors, volumes, oks, p);
-   //   n_ok = 0;
-   //   for (int i = 0; i < d.n_events_gen; i++) {
-   //     if (oks[i]) n_ok++;
-   //   }
-   //   printf ("Trial %d: %d / %d\n", i, n_ok, d.n_events_gen);
+   printf ("Precondition grid with %d trials and %d events / trial.\n", n_trials, n_trial_events);
+   for (int i = 0; i < n_trials; i++) {
+      rng_generate (n_channels, n_x, n_trial_events, x);
+      gen_phs_from_x_gpu (n_channels * n_trial_events, n_channels, channels,
+                          n_x, x, factors, volumes, oks_gpu, p);
+      n_ok = 0;
+      for (int i = 0; i < d.n_events_gen; i++) {
+        if (oks_gpu[i]) n_ok++;
+      }
+      printf ("Trial %d: %d / %d\n", i, n_ok, d.n_events_gen);
 
-   //   update_weights (n_x, n_channels, d.n_events_gen, channels, x, oks);
-   //}
+      update_weights (n_x, n_channels, d.n_events_gen, channels, x, oks_gpu);
+   }
 
    // Now do the real time measurement with the adapted grids
+   printf ("Perform optimized GPU run with %d events:\n", d.n_events_gen);
+   printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem (d, n_x) / BYTES_PER_GB);
+   printf ("Required CPU memory: %lf GiB\n", (double)required_cpu_mem (d, n_x) / BYTES_PER_GB);
+
    rng_generate (n_channels, n_x, n_events_per_channel, x);
    t1 = mysecond();
    gen_phs_from_x_gpu (d.n_events_gen, n_channels, channels, n_x, x, factors, volumes, oks_gpu, p);

@@ -409,7 +409,6 @@ __global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_
                             double *msq, double *factors, double *volumes, bool *oks) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid >= N) return;
-  if (tid == 1) printf ("xgpu: %lf %lf %lf %lf %lf\n", xc->x[5], xc->x[6], xc->x[7], xc->x[8], xc->x[9]);
   double mm_max = sqrts;
   double msq_min = 0;
   double msq_max = sqrts * sqrts;
@@ -424,30 +423,21 @@ __global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_
      double m = mappings_d[channel].masses[branch_idx];
      double w = mappings_d[channel].widths[branch_idx];
      double f;
-     //if (tid == 384) printf ("x: %lf\n", x);
      mappings_d[channel].comp_msq[branch_idx](x, sqrts * sqrts, m, w, msq_min, msq_max, a,
                                               &msq[DN_BRANCHES * tid + branch_idx], &f);
      factors[DN_BRANCHES * tid + branch_idx] *= f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2]; 
      volumes[DN_BRANCHES * tid + branch_idx] *= volumes[DN_BRANCHES * tid + k1] * volumes[DN_BRANCHES * tid + k2] * sqrts * sqrts / (4 * TWOPI2);
 
      double msq0 = msq[DN_BRANCHES * tid + branch_idx];
-     //if (tid == 0) printf ("msq0: %lf\n", msq0);
      double msq1 = msq[DN_BRANCHES * tid + k1];
      double msq2 = msq[DN_BRANCHES * tid + k2];
      double m0 = sqrt(msq0);
      double m1 = sqrt(msq1);
      double m2 = sqrt(msq2);
      double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
-     //if (tid == 0) printf ("%lf %lf %lf -> %lf %lf\n", msq0, msq1, msq2, lda, sqrt(lda));
-     //if (lda > 0) {
-        p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
-        p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
-        factors[DN_BRANCHES * tid + branch_idx] *= sqrt(lda) / msq0;
-     //}
-     //if (tid == 384) {
-     //   printf ("Check: %d %d %d %d %d\n", tid, msq0 >= 0, lda > 0, m0 > m1 + m2, m0 <= mm_max);
-     //   printf ("msq: %lf %lf %lf\n", msq0, msq1, msq2);
-     //}
+     p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
+     p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
+     factors[DN_BRANCHES * tid + branch_idx] *= sqrt(lda) / msq0;
      oks[tid] &= (msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= mm_max);
   }
 
@@ -458,23 +448,16 @@ __global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_
   factors[DN_BRANCHES * tid] = factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2];
   volumes[DN_BRANCHES * tid] = volumes[DN_BRANCHES * tid + k1] * volumes[DN_BRANCHES * tid + k2] / (4 * TWOPI5);
   double msq0 = msq[DN_BRANCHES * tid];
-  //if (tid == 0) printf ("msq0: %lf\n", msq0);
   double msq1 = msq[DN_BRANCHES * tid + k1];
   double msq2 = msq[DN_BRANCHES * tid + k2];
   double m0 = sqrt(msq0);
   double m1 = sqrt(msq1);
   double m2 = sqrt(msq2);
   double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
-  if (tid == 0) printf ("%lf %lf %lf -> %lf\n", msq0, msq1, msq2, lda);
-  //if (lda > 0) {
-     p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
-     p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
-     factors[DN_BRANCHES * tid] *= sqrt(lda) / msq0;
-  //}
-  ///if (tid == 384) printf ("Check: %d %d\n", tid, msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= mm_max);
+  p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
+  p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
+  factors[DN_BRANCHES * tid] *= sqrt(lda) / msq0;
   oks[tid] &= (msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= mm_max);
-  //if (tid == 0) printf ("ok: %d\n", oks[tid]);
-  //if (!oks[tid]) printf ("not ok GPU: %d\n", tid);
 }
 
 __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_cmd,
@@ -545,7 +528,6 @@ __global__ void _create_boosts (int N, double sqrts, int *channels, int *cmd, in
       int parent_boost = cmd[3*n_cmd*channel + 3*c + 2];
 
       int boost_idx = cmd[3*n_cmd*channel + 3*c + 1];
-      if (tid == 0) printf ("boost_idx: %d %d\n", 3*n_cmd * c + 1, boost_idx);
       struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
       struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
       memset (Lnew, 0, 16 * sizeof(double));
