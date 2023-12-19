@@ -17,14 +17,6 @@ enum {MAP_NO=0,
       MAP_ONSHELL=99};
 
 typedef struct {
-   long long n_events_val;
-   long long n_events_gen;
-   //int *nt; // n_threads
-   //int *nb; // n_blocks 
-   //int *batch;
-} phs_dim_t;
-
-typedef struct {
    int nx;
    int *id_gpu;
    int id_cpu;
@@ -73,7 +65,7 @@ void gen_phs_from_x_gpu (int n_events,
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
-void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x, int *channels,
+void gen_phs_from_x_cpu (double sqrts, int n_events, int n_x, double *x, int *channels,
                          double *factors, double *volumes, bool *oks, phs_prt_t *prt);
 
 

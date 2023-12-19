@@ -138,7 +138,7 @@ void set_msq_cpu (int n_events,  int channel, int branch_idx,
 }
 
 
-void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
+void set_angles_cpu (int channel, int branch_idx,
                      xcounter_t *xc, double s, double *msq, double *factor,
                      double *p_decay, phs_prt_t *prt, double L0[4][4]) {
    double p = p_decay[branch_idx];
@@ -192,15 +192,9 @@ void set_angles_cpu (phs_dim_t d, int channel, int branch_idx,
             }
          }
       }
-      ///if (first) {
-      ///   printf ("%lf %lf %lf %lf\n", L_new[0][0], L_new[0][1], L_new[0][2], L_new[0][3]);         
-      ///   printf ("%lf %lf %lf %lf\n", L_new[1][0], L_new[1][1], L_new[1][2], L_new[1][3]);         
-      ///   printf ("%lf %lf %lf %lf\n", L_new[2][0], L_new[2][1], L_new[2][2], L_new[2][3]);         
-      ///   printf ("%lf %lf %lf %lf\n", L_new[3][0], L_new[3][1], L_new[3][2], L_new[3][3]);         
-      ///}
-      
-      set_angles_cpu (d, channel, k1, xc, s, msq, factor, p_decay, prt, L_new);
-      set_angles_cpu (d, channel, k2, xc, s, msq, factor, p_decay, prt, L_new);
+
+      set_angles_cpu (channel, k1, xc, s, msq, factor, p_decay, prt, L_new);
+      set_angles_cpu (channel, k2, xc, s, msq, factor, p_decay, prt, L_new);
    }
 }
 
@@ -281,7 +275,7 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 }
 
 #define BYTES_PER_GB 1073741824
-void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
+void gen_phs_from_x_cpu (double sqrts, int n_events, int n_x, double *x,
                          int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
@@ -304,16 +298,15 @@ void gen_phs_from_x_cpu (double sqrts, phs_dim_t d, int n_x, double *x,
    L0[2][2] = 1;
    L0[3][3] = 1;
 
-   for (int i = 0; i < d.n_events_gen; i++) {
+   for (int i = 0; i < n_events; i++) {
       oks[i] = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
-      //set_msq_cpu (d, i, c, ROOT_BRANCH, &xc, sqrts, msq, factors + i, volumes + i, oks + i, p_decay);
       int id_x = 0;
-      set_msq_cpu (d.n_events_gen, c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, factors + i, volumes + i, oks + i, p_decay); 
+      set_msq_cpu (n_events, c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, factors + i, volumes + i, oks + i, p_decay); 
       if (oks[i]) {
-         set_angles_cpu (d, c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
+         set_angles_cpu (c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
       } else {
         //printf ("Not ok CPU: %d\n", i);
       }
