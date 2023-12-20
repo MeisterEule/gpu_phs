@@ -91,7 +91,7 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
    fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events_gen);
 }
 
-long long required_gpu_mem (int n_events, int n_x) {
+long long required_gpu_mem (long long n_events, int n_x) {
    long long mem = 0;
    // Random numbers and counter indices
    mem += n_x * n_events * sizeof(double);
@@ -111,7 +111,7 @@ long long required_gpu_mem (int n_events, int n_x) {
    return mem;
 }
 
-long long required_cpu_mem (int n_events, int n_x) {
+long long required_cpu_mem (long long n_events, int n_x) {
    long long mem = 0;
    // Random numbers
    mem += n_x * n_events * sizeof(double);

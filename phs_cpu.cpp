@@ -77,20 +77,20 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
 
 static int first = 1;
 
-void set_msq_cpu (int n_events,  int channel, int branch_idx,
-                  double *x, int *id_x, double sqrts, double *msq,
+void set_msq_cpu (int channel, int branch_idx,
+                  double *x, long long *id_x, double sqrts, double *msq,
                   double *factor, double *volume, bool *ok, double *p_decay) {
    int k1 = daughters1[channel][branch_idx];
    int k2 = daughters2[channel][branch_idx];
    double f1, f2, v1, v2;
    if (has_children[channel][k1]) {
-      set_msq_cpu(n_events, channel, k1, x, id_x, sqrts, msq, &f1, &v1, ok, p_decay);
+      set_msq_cpu(channel, k1, x, id_x, sqrts, msq, &f1, &v1, ok, p_decay);
       if (!(*ok)) return;
    } else {
       f1 = 1; v1 = 1;
    }
    if (has_children[channel][k2]) {
-      set_msq_cpu(n_events, channel, k2, x, id_x, sqrts, msq, &f2, &v2, ok, p_decay);
+      set_msq_cpu(channel, k2, x, id_x, sqrts, msq, &f2, &v2, ok, p_decay);
       if (!(*ok)) return;
    } else {
       f2 = 1; v2 = 1;
@@ -153,7 +153,7 @@ void set_angles_cpu (int channel, int branch_idx,
       int k2 = daughters2[channel][branch_idx];
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
-      int id = xc->id_cpu++;
+      long long id = xc->id_cpu++;
       double x = xc->x[id];
       double phi = x * TWOPI;
       double cp = cos(phi);
@@ -275,7 +275,7 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 }
 
 #define BYTES_PER_GB 1073741824
-void gen_phs_from_x_cpu (double sqrts, int n_events, int n_x, double *x,
+void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_x, double *x,
                          int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
@@ -298,13 +298,13 @@ void gen_phs_from_x_cpu (double sqrts, int n_events, int n_x, double *x,
    L0[2][2] = 1;
    L0[3][3] = 1;
 
-   for (int i = 0; i < n_events; i++) {
+   for (long long i = 0; i < n_events; i++) {
       oks[i] = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
-      int id_x = 0;
-      set_msq_cpu (n_events, c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, factors + i, volumes + i, oks + i, p_decay); 
+      long long id_x = 0;
+      set_msq_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, factors + i, volumes + i, oks + i, p_decay); 
       if (oks[i]) {
          set_angles_cpu (c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
       } else {

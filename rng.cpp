@@ -30,7 +30,8 @@ void init_rng (int n_channels, int n_dim) {
 }
 
 
-void update_weights (int n_dim, int n_channels, int n_events, int *channels, double *x, bool *oks) {
+void update_weights (int n_dim, int n_channels, long long n_events,
+                     int *channels, double *x, bool *oks) {
 
    int *n_tot = (int*)malloc(n_channels * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
@@ -43,7 +44,7 @@ void update_weights (int n_dim, int n_channels, int n_events, int *channels, dou
    }
 
 
-   for (int i = 0; i < n_events; i++) {
+   for (long long i = 0; i < n_events; i++) {
       int c = channels[i];
       if (oks[i]) {
          for (int j = 0; j < n_dim; j++) {
@@ -65,7 +66,7 @@ void update_weights (int n_dim, int n_channels, int n_events, int *channels, dou
    free(n_tot);
 }
 
-void rng_generate (int n_channels, int n_dim, int n_events_per_channel, double *x) {
+void rng_generate (int n_channels, long long n_events_per_channel, int n_dim, double *x) {
    std::default_random_engine generator;
    //std::array<double,6> intervals {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};
    //double intervals[6] = {0.0, 0.2, 0.4, 0.6, 0.8, 1.0};

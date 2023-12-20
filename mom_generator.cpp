@@ -5,8 +5,8 @@
 #include "phs.h"
 #include "mom_generator.h"
 
-int count_nevents_in_reference_file (char *ref_file, int n_momenta, int filepos) {
-   int n_lines = 0;
+long long count_nevents_in_reference_file (char *ref_file, int n_momenta, int filepos) {
+   long long n_lines = 0;
    std::ifstream reader (ref_file);
    reader.seekg(filepos, reader.beg);
    std::string line; 

@@ -124,17 +124,17 @@ __global__ void _init_boost (int N, double *L) {
    LL->l[3][3] = 1;
 }
 
-__global__ void _init_x (xcounter_t *xc, double *x, int *id, int nx) {
+__global__ void _init_x (xcounter_t *xc, double *x, long long *id, int nx) {
    xc->nx = nx;
    xc->id_gpu = id;
    xc->id_cpu = 0;
    xc->x = x;
 }
 
-__global__ void _init_fv (int N, double *factors, double *volumes, bool *oks) {
-  int tid = threadIdx.x + blockDim.x * blockIdx.x;
+__global__ void _init_fv (long long N, double *factors, double *volumes, bool *oks) {
+  long long tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid >= N) return;
-  for (int i = 0; i < DN_BRANCHES; i++) {
+  for (long long i = 0; i < DN_BRANCHES; i++) {
      factors[DN_BRANCHES * tid + i] = 1;
      volumes[DN_BRANCHES * tid + i] = 1;
   }
@@ -216,8 +216,8 @@ void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int
    }
 }
 
-__global__ void _init_first_boost (int N, double *L) {
-   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+__global__ void _init_first_boost (long long N, double *L) {
+   long long tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
    struct boost *LL = (struct boost*)(&L[16 * DN_BOOSTS * tid]);
    memset (LL->l, 0, 16 * sizeof(double));
@@ -400,10 +400,10 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
   }
 }
 
-__global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_cmd,
+__global__ void _apply_msq (long long N, double sqrts, int *channels, int *cmd, int n_cmd,
                             xcounter_t *xc, double *p_decay,
                             double *msq, double *factors, double *volumes, bool *oks) {
-  int tid = threadIdx.x + blockDim.x * blockIdx.x;
+  long long tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid >= N) return;
   double mm_max = sqrts;
   double msq_min = 0;
@@ -413,7 +413,7 @@ __global__ void _apply_msq (int N, double sqrts, int *channels, int *cmd, int n_
      int k1 = cmd[3 * n_cmd * channel + 3 * c];
      int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
      int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
-     int xtid = xc->nx * tid + xc->id_gpu[tid]++;
+     long long xtid = xc->nx * tid + xc->id_gpu[tid]++;
      double x = xc->x[xtid];
      double *a = mappings_d[channel].a[branch_idx].a;
      double m = mappings_d[channel].masses[branch_idx];
@@ -477,10 +477,10 @@ __global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_
   }
 }
 
-__global__ void _create_boosts (int N, double sqrts, int *channels, int *cmd, int n_cmd,
+__global__ void _create_boosts (long long N, double sqrts, int *channels, int *cmd, int n_cmd,
                                 xcounter_t *xc, double *msq, double *p_decay,
                                 double *Ld, double *factors) {
-   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   long long tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
    int channel = channels[tid];
    for (int c = 0; c < n_cmd; c++) {
@@ -490,7 +490,7 @@ __global__ void _create_boosts (int N, double sqrts, int *channels, int *cmd, in
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
 
-      int xtid = xc->nx * tid + xc->id_gpu[tid]++;
+      long long xtid = xc->nx * tid + xc->id_gpu[tid]++;
       double x = xc->x[xtid];
       double phi = x * TWOPI;
       double cp = cos(phi);
@@ -537,9 +537,9 @@ __global__ void _create_boosts (int N, double sqrts, int *channels, int *cmd, in
    }
 }
 
-__global__ void _apply_boost_targets (int N, int *channels, int *cmd, int n_cmd,
+__global__ void _apply_boost_targets (long long N, int *channels, int *cmd, int n_cmd,
                                       double *Ld, double *msq, double *p_decay, double *prt) {
-   int tid = threadIdx.x + blockDim.x * blockIdx.x;
+   long long tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
    int channel = channels[tid];
    for (int c = 0; c < n_cmd; c++) {
@@ -554,18 +554,19 @@ __global__ void _apply_boost_targets (int N, int *channels, int *cmd, int n_cmd,
    }
 }
 
-void gen_phs_from_x_gpu (int n_events, 
+void gen_phs_from_x_gpu (long long n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h) {
    double *x_d;
-   int *id_d;
+   long long *id_d;
    cudaMalloc((void**)&x_d, n_x * n_events * sizeof(double));
-   cudaMalloc((void**)&id_d, n_events * sizeof(int));
+   cudaMalloc((void**)&id_d, n_events * sizeof(long long));
    xcounter_t *xc;
    cudaMalloc((void**)&xc, sizeof(xcounter_t));
    cudaMemcpy (x_d, x_h, n_x * n_events * sizeof(double), cudaMemcpyHostToDevice);
-   cudaMemset (id_d, 0, n_events * sizeof(int));
+   cudaMemset (id_d, 0, n_events * sizeof(long long));
    _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
+   printf ("Init 0: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    int *cmds_msq_d, *cmds_boost_o_d, *cmds_boost_t_d;
    cudaMalloc((void**)&cmds_msq_d, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
