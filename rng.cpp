@@ -13,10 +13,6 @@ typedef struct {
    double weights[NBINS];
 } x_dim_t;
 
-//typedef struct {
-//   double *x;
-//} x_channel_t;
-
 x_dim_t **x_dim;
 
 void init_rng (int n_channels, int n_dim) {
@@ -31,19 +27,6 @@ void init_rng (int n_channels, int n_dim) {
          x_dim[c][i].intervals[NBINS] = 1.0;
       }
    }
-
-   //printf ("Init weights: \n");
-   //for (int c = 0; c < 1; c++) {
-   //   printf ("Channel: %d\n", c);
-   //   for (int d = 0; d < n_dim; d++) {
-   //      printf ("  dim: %d\n", d);
-   //      for (int b = 0; b < NBINS; b++) {
-   //         printf ("    %lf ", x_dim[c][d].weights[b]);
-   //      }
-   //      printf ("\n");
-   //   }
-   //}
-
 }
 
 
@@ -79,42 +62,7 @@ void update_weights (int n_dim, int n_channels, int n_events, int *channels, dou
       }
    }
 
-   //printf ("New weights: \n");
-   //for (int c = 0; c < 1; c++) {
-   //   printf ("Channel: %d\n", c);
-   //   for (int d = 0; d < n_dim; d++) {
-   //      printf ("  dim: %d\n", d);
-   //      for (int b = 0; b < NBINS; b++) {
-   //         printf ("    %lf ", x_dim[c][d].weights[b]);
-   //      }
-   //      printf ("\n");
-   //   }
-   //}
-
    free(n_tot);
-
-   
-   //for (int c = 0; c < n_channels; c++) {
-   //   for (int d = 0; 
-   //}
-   //for (int b = 0; b < NBINS; b++) {
-   //   for (int j = 0; j < dim; j++) {
-   //      weights[channel][j].w[b] = 0;
-   //   }
-   //} 
-   //for (int i = 0; i < n_events; i++) {
-   //   if (oks[i]) {
-   //      for (int j = 0; j < dim; j++) {
-   //         int idx = (int)x[dim * i + j] * NBINS; 
-   //         weights[channel][j].w[idx]++;
-   //      }
-   //   }
-   //}
-   //for (int j = 0; j < dim; j++) {
-   //   for (int b = 0; b < NBINS; b++) { 
-   //      weights[channel][j].w[b] /= n_events;
-   //   }
-   //}
 }
 
 void rng_generate (int n_channels, int n_dim, int n_events_per_channel, double *x) {

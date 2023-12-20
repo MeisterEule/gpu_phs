@@ -97,7 +97,6 @@ __global__ void _fill_mapids (int channel, int n_part, int *map_ids) {
 
 __global__ void _fill_masses (int channel, int n_part, double *m, double *w) {
    for (int i = 0; i < n_part; i++) {
-      //printf ("MASS: %d %d %lf %lf\n", channel, i, m[i], w[i]);
       mappings_d[channel].masses[i] = m[i];
       mappings_d[channel].widths[i] = w[i];
    }
@@ -158,8 +157,6 @@ __global__ void _set_device_constants (int _n_prt, int _n_prt_out, int _prt_stri
 }
 
 void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
-   //(*nboost)++;
-   //if (*nboost > *nboost_max) *nboost_max = *nboost;
    if (has_children[0][branch_idx]) {
       int k1 = daughters1[0][branch_idx];
       int k2 = daughters2[0][branch_idx];
@@ -169,7 +166,6 @@ void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
       count_max_boosts (nboost_max, nboost, k2);
       (*nboost)--;
    }
-   //(*nboost)--;
 }
 
 void extract_msq_branch_idx (std::vector<int> *cmd_list, int channel, int branch_idx) {

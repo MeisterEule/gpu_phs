@@ -104,6 +104,7 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
                          int n_x, int n_channels, int n_in, int n_out) {
    double t1, t2;
    int n_events  = n_events_per_channel * n_channels;
+   int n_trial_events_tot = n_trial_events * n_channels;
 
    double sqrts = 1000;
    init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
@@ -112,9 +113,9 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
 
    init_rng (n_channels, n_x);
 
-   int *channels = (int*)malloc(n_events * sizeof(int));
-   for (int i = 0; i < n_events; i++) {
-     channels[i] = i / n_events_per_channel;
+   int *channels = (int*)malloc(n_trial_events_tot * sizeof(int));
+   for (int i = 0; i < n_trial_events_tot; i++) {
+      channels[i] = i / n_trial_events;
    }
 
    double *p = (double*)malloc(4 * n_out * n_events * sizeof(double));
@@ -128,7 +129,6 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
 
    int n_ok;
    printf ("Precondition grid with %d trials and %d events / trial.\n", n_trials, n_trial_events);
-   int n_trial_events_tot = n_trial_events * n_channels;
    // Assert n_trial_events <= n_events
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_x, n_trial_events, x);
@@ -142,6 +142,13 @@ void do_verify_internal (int n_events_per_channel, int n_trials, int n_trial_eve
 
       update_weights (n_x, n_channels, n_trial_events_tot, channels, x, oks_gpu);
    }
+
+   free(channels);
+   channels = (int*)malloc(n_events * sizeof(int));
+   for (int i = 0; i < n_events; i++) {
+     channels[i] = i / n_events_per_channel;
+   }
+
 
    // Now do the real time measurement with the adapted grids
    printf ("Perform optimized GPU run with %d events:\n", n_events);
