@@ -5,6 +5,7 @@
 
 #include "phs.h"
 #include "monitoring.h"
+#include "file_input.h"
 
 int N_PRT = 0;
 int N_PRT_IN = 0;
@@ -604,7 +605,7 @@ void gen_phs_from_x_gpu (long long n_events,
    cudaDeviceSynchronize();
    printf ("Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 
-   int nt = 512;
+   int nt = input_control.msq_threads;
    int nb = n_events / nt + 1;
 
    cudaDeviceSynchronize();
@@ -615,12 +616,17 @@ void gen_phs_from_x_gpu (long long n_events,
    cudaDeviceSynchronize();
 
    printf ("MSQ: %s\n", cudaGetErrorString(cudaGetLastError()));
+
+   nt = input_control.cb_threads;
+   nb = n_events / nt  + 1;
    _create_boosts<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
                              xc, msq_d, p_decay, Ld, factors_d);
 
    cudaDeviceSynchronize();
    printf ("Create boost: %s\n", cudaGetErrorString(cudaGetLastError()));
 
+   nt = input_control.ab_threads;
+   nb = n_events / nt  + 1;
    _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT,
                                     Ld, msq_d, p_decay, prt_d);
 
@@ -631,7 +637,7 @@ void gen_phs_from_x_gpu (long long n_events,
    // This can also be done on the device, primarily to avoid large temporary arrays.
    double *copy = (double*)malloc(4 * N_BRANCHES * n_events * sizeof(double));
    cudaMemcpy (copy, prt_d, 4 * N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
-   for (int i = 0; i < n_events; i++) {
+   for (long long i = 0; i < n_events; i++) {
       int c = channels[i];
       for (int j = 0; j < n_out; j++) {
          p_h[4*n_out*i + 4*j + 0] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 0];

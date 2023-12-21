@@ -1,11 +1,12 @@
 #!/bin/bash
 
+INC="./external/include"
 set -ex
-nvcc -arch=sm_80 -res-usage -c phs.cu -o phs.o
-nvcc -c phs_cpu.cpp -o phs_cpu.o
-nvcc -c monitoring.cpp -o monitoring.o
-nvcc -c mom_generator.cpp -o mom_generator.o
-nvcc -c rng.cpp -o rng.o
-nvcc -c main.cpp -o main.o
-nvcc main.o rng.o monitoring.o mom_generator.o phs_cpu.o phs.o -o phs.x
+nvcc -I$INC -arch=sm_80 -res-usage -c phs.cu -o phs.o
+nvcc -I$INC -c phs_cpu.cpp -o phs_cpu.o
+nvcc -I$INC -c monitoring.cpp -o monitoring.o
+nvcc -I$INC -c file_input.cpp -o file_input.o
+nvcc -I$INC -c rng.cpp -o rng.o
+nvcc -I$INC -c main.cpp -o main.o
+nvcc main.o rng.o monitoring.o file_input.o phs_cpu.o phs.o -o phs.x
 

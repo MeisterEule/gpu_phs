@@ -2,10 +2,98 @@
 #include <string>
 #include <sstream>
 
-#include "phs.h"
-#include "mom_generator.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
 
-long long count_nevents_in_reference_file (char *ref_file, int n_momenta, int filepos) {
+#include "phs.h"
+#include "file_input.h"
+
+input_control_t input_control;
+
+void read_input_json (const char *filename) {
+   std::string line, text;
+   std::ifstream in (filename);
+   while (std::getline(in, line)) {
+      text += line + "\n";
+   }
+
+   printf ("FOO: %s\n", text.c_str());
+
+   rapidjson::Document d;
+   d.Parse (text.c_str());  
+
+   printf ("Get ref_file\n");
+   assert (d["ref_file"].IsString());
+   input_control.ref_file = strdup(d["ref_file"].GetString());
+
+   printf ("Get verify\n");
+   //s = d["verify"];
+   bool verify_whizard;
+   if (d.HasMember("verify")) {
+      printf ("HUHU\n");
+      assert (d["verify"].IsString());
+      //verify_whizard = d.GetBool();
+      verify_whizard = d["verify"].GetString() == "whizard";
+   } else {
+      verify_whizard = true;
+   }
+   printf ("Result: %d\n", verify_whizard);
+
+   if (!verify_whizard) {
+       if (d.HasMember("n_events") && d.HasMember("gpu_memory")) {
+          printf ("%s: Both n_events and gpu_memory specified. gpu_memory takes precedence.\n", filename);
+       }
+       if (d.HasMember("gpu_memory")) {
+          assert (d["gpu_memory"].IsInt());
+          input_control.run_type = RT_INTERNAL_FIXED_MEMORY;
+          printf ("Check: %d\n", d["gpu_memory"].GetInt());
+          input_control.gpu_memory = d["gpu_memory"].GetInt64() * 1024 * 1024;
+          printf ("Check 2: %lld\n", input_control.gpu_memory);
+       } else if (d.HasMember("n_events")) {
+          assert (d["n_events"].IsInt());
+          input_control.run_type = RT_INTERNAL_FIXED_N;
+          input_control.internal_events = d["n_events"].GetInt64();
+       } else {
+          std::abort();
+       }
+       //s = d["warmup"];
+       if (d.HasMember("warmup")) {
+          assert (d["warmup"]["n_trials"].IsInt());
+          input_control.warmup_trials = d["warmup"]["n_trials"].GetInt();
+          assert (d["warmup"]["n_events"].IsInt());
+          input_control.warmup_events = d["warmup"]["n_events"].GetInt64();
+       } else {
+          input_control.warmup_trials = 0;
+          input_control.warmup_events = 0;
+       }
+   } else {
+       input_control.run_type = RT_WHIZARD;
+   }
+
+   if (d.HasMember("msq")) {
+      assert (d["msq"]["threads"].IsInt());
+      input_control.msq_threads = d["msq"]["threads"].GetInt();
+   } else {
+      input_control.msq_threads = NTHREADS_DEFAULT;
+   } 
+
+   if (d.HasMember("create_boosts")) {
+      assert (d["create_boosts"]["threads"].IsInt());
+      input_control.cb_threads = d["create_boosts"]["threads"].GetInt();
+   } else {
+      input_control.cb_threads = NTHREADS_DEFAULT;
+   } 
+
+   if (d.HasMember("apply_boosts")) {
+      assert (d["apply_boosts"]["threads"].IsInt());
+      input_control.ab_threads = d["apply_boosts"]["threads"].GetInt();
+   } else {
+      input_control.ab_threads = NTHREADS_DEFAULT;
+   } 
+
+}
+
+long long count_nevents_in_reference_file (const char *ref_file, int n_momenta, int filepos) {
    long long n_lines = 0;
    std::ifstream reader (ref_file);
    reader.seekg(filepos, reader.beg);
@@ -19,7 +107,7 @@ long long count_nevents_in_reference_file (char *ref_file, int n_momenta, int fi
    return n_lines / n_lines_per_batch;
 }
 
-void read_reference_header (char *ref_file, int *header_data, int *filepos) {
+void read_reference_header (const char *ref_file, int *header_data, int *filepos) {
    std::ifstream reader (ref_file);
    std::string line; 
    std::string dummy;
@@ -34,7 +122,7 @@ void read_reference_header (char *ref_file, int *header_data, int *filepos) {
    }
 }
 
-void read_tree_structures (char *ref_file, int n_trees, int n_prt, int n_prt_out, int *filepos) {
+void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_prt_out, int *filepos) {
    std::ifstream reader (ref_file);
    std::string line;
    std::string dummy;
@@ -86,7 +174,8 @@ void read_tree_structures (char *ref_file, int n_trees, int n_prt, int n_prt_out
    } 
 }
 
-void read_reference_momenta (char *ref_file, int filepos, int n_momenta, int n_x, double *x,
+void read_reference_momenta (const char *ref_file, int filepos,
+                             int n_momenta, int n_x, double *x,
                              int *channel_lims, phs_val_t *p) {
    std::ifstream reader (ref_file);
    std::string line; 

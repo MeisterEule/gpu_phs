@@ -12,11 +12,9 @@
 #include "rng.h"
 #include "monitoring.h"
 #include "phs.h"
-#include "mom_generator.h"
+#include "file_input.h"
 
-bool verify_against_whizard = false;
-
-void do_verify_against_whizard (char *ref_file, int n_x, int n_channels, 
+void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, 
                                 int n_in, int n_out, int filepos_start_mom) {
    long long n_events = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos_start_mom);
 
@@ -212,18 +210,21 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
 
 int main (int argc, char *argv[]) {
    if (argc < 2) {
-      printf ("No reference file given!\n");
+      printf ("No json file given!\n");
       return -1;
    }
-   char *ref_file = argv[1];
+   //char *ref_file = argv[1];
    // Check that the ref file exists
    //
    init_logfiles ("input.log", "cuda.log");
 
+   //read_input_json ("config.json");
+   read_input_json (argv[1]);
+
    int n_prt_tot, n_prt_out;
    int filepos = 0;
    int *header_data = (int*)malloc (NHEADER * sizeof(int));
-   read_reference_header (ref_file, header_data, &filepos);
+   read_reference_header (input_control.ref_file, header_data, &filepos);
    int n_channels = header_data[H_NCHANNELS];
    int n_in = header_data[H_NIN];
    int n_out = header_data[H_NOUT];
@@ -267,7 +268,7 @@ int main (int argc, char *argv[]) {
       mappings_host[i].masses = (double*)malloc(N_PRT_OUT * sizeof(double));
       mappings_host[i].widths = (double*)malloc(N_PRT_OUT * sizeof(double));
    }
-   read_tree_structures (ref_file, n_channels, N_PRT, N_PRT_OUT, &filepos);
+   read_tree_structures (input_control.ref_file, n_channels, N_PRT, N_PRT_OUT, &filepos);
 
    for (int c = 0; c < n_channels; c++) {
       fprintf (logfl[LOG_INPUT], "Channel %d: \n", c);
@@ -302,10 +303,19 @@ int main (int argc, char *argv[]) {
 
 
     
-   if (verify_against_whizard) {
-      do_verify_against_whizard (ref_file, n_x, n_channels, n_in, n_out, filepos);
+   if (input_control.run_type == RT_WHIZARD) {
+      do_verify_against_whizard (input_control.ref_file, n_x, n_channels,
+                                 n_in, n_out, filepos);
    } else {
-      do_verify_internal (100000, 10, 1000, n_x, n_channels, n_in, n_out);
+      int n_events;
+      if (input_control.run_type == RT_INTERNAL_FIXED_N) {
+         n_events = input_control.internal_events;
+      } else {
+         n_events = nevents_that_fit_into_gpu_mem (input_control.gpu_memory, n_x, n_channels); 
+      }
+      do_verify_internal (n_events,
+                          input_control.warmup_trials, input_control.warmup_events,
+                          n_x, n_channels, n_in, n_out);
    }
 
    final_logfiles();

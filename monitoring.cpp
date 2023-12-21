@@ -1,3 +1,5 @@
+#include <string>
+#include <fstream>
 #include <sys/time.h>
 #include <cmath>
 
@@ -109,6 +111,19 @@ long long required_gpu_mem (long long n_events, int n_x) {
    // oks
    mem += n_events * sizeof(bool);
    return mem;
+}
+
+// In short:  mem = (n_x * sizeof(double) + 2 * sizeof(int) 
+//                +  10 * N_BRANCHES * sizeof(double)
+//                +  16 * N_BOOSTS * sizeof(double)
+//                +  sizeof(bool)) * n_events 
+//
+long long nevents_that_fit_into_gpu_mem (long long mem, int n_x, int n_channels) {
+   long long mem_per_element = n_x * sizeof(double) + 2 * sizeof(int)
+                             + 8 * N_BRANCHES * sizeof(double)
+                             + 16 * N_BOOSTS * sizeof(double)
+                             + sizeof(bool);
+   return mem / mem_per_element / n_channels;
 }
 
 long long required_cpu_mem (long long n_events, int n_x) {
