@@ -19,6 +19,7 @@ typedef struct {
   int msq_threads;
   int cb_threads;
   int ab_threads; 
+  bool check_cpu;
 } input_control_t;
 
 extern input_control_t input_control;

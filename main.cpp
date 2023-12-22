@@ -79,7 +79,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
    oks = (bool*)malloc(n_events * sizeof(bool));
 
    t1 = mysecond();
-   gen_phs_from_x_cpu (sqrts, n_events, n_x, x, channels, factors, volumes, oks, prt);
+   //gen_phs_from_x_cpu (sqrts, n_events, n_x, x, channels, factors, volumes, oks, prt);
    t2 = mysecond();
 
    fp = fopen ("compare.cpu", "w+");
@@ -172,7 +172,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    }
    printf ("Valid events: %d / %d\n", n_ok, n_events);
 
-   free(p);
+   //free(p);
    phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * n_events * sizeof(phs_prt_t));
    memset (prt, 0, N_PRT * 4 * n_events * sizeof(double));
    ///double *factors = (double*)malloc(d.n_events_gen * sizeof(double));
@@ -184,28 +184,30 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    //   volumes[i] = 1;
    //}
 
+   //printf ("Check outside: %lf\n", p[0]);
    t1 = mysecond();
-   gen_phs_from_x_cpu (sqrts, n_events, n_x, x, channels, factors, volumes, oks_cpu, prt);
+   gen_phs_from_x_cpu (sqrts, n_events, n_out, n_x, x, channels, &n_ok, p, oks_gpu);
    t2 = mysecond();
 
    printf ("CPU: %lf sec\n", t2 - t1);
 
-   n_ok = 0;
-   for (long long i = 0; i < n_events; i++) {
-      if (oks_cpu[i]) n_ok++;
-   }
+   //n_ok = 0;
+   //for (long long i = 0; i < n_events; i++) {
+   //   if (oks_cpu[i]) n_ok++;
+   //}
    printf ("Valid events: %d / %d\n", n_ok, n_events);
 
 
-   for (long long i = 0; i < n_events; i++) {
-      if (oks_cpu[i] != oks_gpu[i]) {
-         if (oks_cpu[i]) {
-           printf ("CPU OK, GPU FAIL: %d\n", i);
-         } else {
-           printf ("GPU OK, CPU FAIL: %d\n", i);
-         }
-      }
-   }
+   ///for (long long i = 0; i < n_events; i++) {
+   ///   if (oks_cpu[i] != oks_gpu[i]) {
+   ///      if (oks_cpu[i]) {
+   ///        printf ("CPU OK, GPU FAIL: %d\n", i);
+   ///      } else {
+   ///        printf ("GPU OK, CPU FAIL: %d\n", i);
+   ///      }
+   ///   }
+   ///}
+   free(p);
 }
 
 int main (int argc, char *argv[]) {

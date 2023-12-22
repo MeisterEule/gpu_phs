@@ -560,6 +560,7 @@ void gen_phs_from_x_gpu (long long n_events,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h) {
    double *x_d;
    long long *id_d;
+   printf ("x: %lf %lf %lf %lf %lf\n", x_h[0], x_h[1], x_h[2], x_h[3], x_h[4]);
    cudaMalloc((void**)&x_d, n_x * n_events * sizeof(double));
    cudaMalloc((void**)&id_d, n_events * sizeof(long long));
    xcounter_t *xc;

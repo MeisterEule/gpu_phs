@@ -4,6 +4,7 @@
 
 #include "phs.h"
 #include "mappings.h"
+#include "file_input.h"
 
 #define MAP_INV_MASS 10
 
@@ -139,7 +140,7 @@ void set_msq_cpu (int channel, int branch_idx,
 
 
 void set_angles_cpu (int channel, int branch_idx,
-                     xcounter_t *xc, double s, double *msq, double *factor,
+                     double *x, long long *idx_x, double s, double *msq, double *factor,
                      double *p_decay, phs_prt_t *prt, double L0[4][4]) {
    double p = p_decay[branch_idx];
    double m  = sqrt(msq[branch_idx]);
@@ -153,16 +154,18 @@ void set_angles_cpu (int channel, int branch_idx,
       int k2 = daughters2[channel][branch_idx];
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
-      long long id = xc->id_cpu++;
-      double x = xc->x[id];
-      double phi = x * TWOPI;
+      //long long id = xc->id_cpu++;
+      //double x = xc->x[id];
+      double phi = x[*idx_x] * TWOPI;
+      (*idx_x)++;
       double cp = cos(phi);
       double sp = sin(phi);
 
-      id = xc->id_cpu++;
-      x = xc->x[id];
+      //id = xc->id_cpu++;
+      double xx = x[*idx_x];
+      (*idx_x)++;
       double ct, st, f;
-      mapping_ct_from_x_cpu (mappings_host[channel].map_id[branch_idx], x, s, &ct, &st, &f);
+      mapping_ct_from_x_cpu (mappings_host[channel].map_id[branch_idx], xx, s, &ct, &st, &f);
       *factor *= f; 
 
       double L1[4][4];
@@ -193,8 +196,8 @@ void set_angles_cpu (int channel, int branch_idx,
          }
       }
 
-      set_angles_cpu (channel, k1, xc, s, msq, factor, p_decay, prt, L_new);
-      set_angles_cpu (channel, k2, xc, s, msq, factor, p_decay, prt, L_new);
+      set_angles_cpu (channel, k1, x, idx_x, s, msq, factor, p_decay, prt, L_new);
+      set_angles_cpu (channel, k2, x, idx_x, s, msq, factor, p_decay, prt, L_new);
    }
 }
 
@@ -275,11 +278,17 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 }
 
 #define BYTES_PER_GB 1073741824
-void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_x, double *x,
-                         int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
+///void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_x, double *x,
+///                         int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
+void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, double *x,
+                         int *channels, int *n_oks, double *p_gpu, bool *oks_gpu) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
+   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * sizeof(phs_prt_t));
+   memset (prt, 0, 4 * N_PRT * sizeof(double));
    m_max = (double*)malloc(N_PRT * sizeof(double));
+   double factor, volume;
+   bool ok;
 
    memset (p_decay, 0, N_PRT * sizeof(double));
    memset (msq, 0, N_PRT * sizeof(double));
@@ -298,19 +307,42 @@ void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_x, double *x,
    L0[2][2] = 1;
    L0[3][3] = 1;
 
+   *n_oks = 0;
    for (long long i = 0; i < n_events; i++) {
-      oks[i] = true;
+      //oks[i] = true;
+      ok = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
       long long id_x = 0;
-      set_msq_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, factors + i, volumes + i, oks + i, p_decay); 
-      if (oks[i]) {
-         set_angles_cpu (c, ROOT_BRANCH, &xc, sqrts * sqrts, msq, factors + i, p_decay, prt + N_PRT * i, L0);
+      if (i == 0) printf ("xcpu: %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4]);
+      if (i == 0) printf ("id_x: %d\n", id_x);
+      set_msq_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, &factor, &volume, &ok, p_decay); 
+      if (ok) {
+         set_angles_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts * sqrts, msq, &factor, p_decay, prt, L0);
       } else {
         //printf ("Not ok CPU: %d\n", i);
       }
       first = 0;
+
+      if (input_control.check_cpu && ok) {
+         for (int n = 0; n < n_out; n++) {
+            double *p = &p_gpu[4*n_out*i + 4*n];
+            int nn = pow(2,n) - 1;
+            if (fabs (p[0] - prt[nn].p[0]) > 0.00001 
+             || fabs (p[1] - prt[nn].p[1]) > 0.00001  
+             || fabs (p[2] - prt[nn].p[2]) > 0.00001  
+             || fabs (p[3] - prt[nn].p[3]) > 0.00001) {
+               fprintf (stdout, "Error in p%d (event: %d, channel: %d):\n", n, i, c);
+               fprintf (stdout, "GPU: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
+               fprintf (stdout, "CPU:  %lf %lf %lf %lf\n", prt[nn].p[0], prt[nn].p[1],
+                                                       prt[nn].p[2], prt[nn].p[3]);
+
+            }
+         //}
+      }
+      if (ok) (*n_oks)++;
+   }
    }
 
    free (p_decay);
