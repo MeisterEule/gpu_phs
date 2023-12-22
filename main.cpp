@@ -119,26 +119,27 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
       channels[i] = i / n_trial_events;
    }
 
-   double *p = (double*)malloc(4 * n_out * n_events * sizeof(double));
-   double *factors = (double*)malloc(n_events * sizeof(double)); 
-   double *volumes = (double*)malloc(n_events * sizeof(double)); 
-   bool *oks_gpu = (bool*)malloc(n_events * sizeof(bool));
-   bool *oks_cpu = (bool*)malloc(n_events * sizeof(bool));
-
    init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts * sqrts);
 
-   //size_t gpu_avail, gpu_total;
-   //cudaMemGetInfo(&gpu_avail, &gpu_total);
+   double *p_gpu = (double*)malloc(4 * n_out * n_events * sizeof(double));
+   double *factors_gpu = (double*)malloc(n_events * sizeof(double)); 
+   double *volumes_gpu = (double*)malloc(n_events * sizeof(double)); 
+   bool *oks_gpu = (bool*)malloc(n_events * sizeof(bool));
 
-   int n_ok;
-   printf ("Precondition grid with %d trials and %d events / trial.\n", n_trials, n_trial_events);
-   // Assert n_trial_events <= n_events
+   // ***** Grid preconditioning ***** 
+   // The generation routine is called n_trial times to focus the random number
+   // generation to regions with a high yield of "ok" events. Since the number of
+   // trial events is smaller or equal than the number of timed events, we can use
+   // all the fields created for the timed run.
+
+   long long n_ok;
+   printf ("Precondition grid with %d trials and %lld events / trial.\n", n_trials, n_trial_events);
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_trial_events, n_x, x);
-      printf ("RNG: Check\n");
       gen_phs_from_x_gpu (n_trial_events_tot, n_channels, channels,
-                          n_x, x, factors, volumes, oks_gpu, p);
+                          n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
+      // Count how many events return "ok". 
       n_ok = 0;
       for (long long i = 0; i < n_trial_events_tot; i++) {
          if (oks_gpu[i]) n_ok++;
@@ -148,6 +149,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
       update_weights (n_x, n_channels, n_trial_events_tot, channels, x, oks_gpu);
    }
 
+   // The channels need to be re-filled w.r.t. a larger number of events.
    free(channels);
    channels = (int*)malloc(n_events * sizeof(int));
    for (long long i = 0; i < n_events; i++) {
@@ -162,52 +164,32 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
    t1 = mysecond();
-   gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors, volumes, oks_gpu, p);
+   gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
    t2 = mysecond();
-
    printf ("GPU: %lf sec\n", t2 - t1);
+
    n_ok = 0;
    for (long long i = 0; i < n_events; i++) {
      if (oks_gpu[i]) n_ok++;
    }
    printf ("Valid events: %d / %d\n", n_ok, n_events);
 
-   //free(p);
-   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * n_events * sizeof(phs_prt_t));
-   memset (prt, 0, N_PRT * 4 * n_events * sizeof(double));
-   ///double *factors = (double*)malloc(d.n_events_gen * sizeof(double));
-   ///double *volumes = (double*)malloc(d.n_events_gen * sizeof(double));
-   //
-   //for (int i = 0; i < d.n_events_gen; i++) {
-   //   oks[i] = true;
-   //   factors[i] = 1;
-   //   volumes[i] = 1;
-   //}
 
-   //printf ("Check outside: %lf\n", p[0]);
+// This implementation saves CPU RAM by discarding an event after it has been validated against
+// the correct GPU event. CPU RAM requirements increase faster than GPU requirements because
+// N_PRT grows exponentially.
+
    t1 = mysecond();
-   gen_phs_from_x_cpu (sqrts, n_events, n_out, n_x, x, channels, &n_ok, p, oks_gpu);
+   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_out, n_x, x, channels, &n_ok, p_gpu, oks_gpu);
    t2 = mysecond();
-
    printf ("CPU: %lf sec\n", t2 - t1);
-
-   //n_ok = 0;
-   //for (long long i = 0; i < n_events; i++) {
-   //   if (oks_cpu[i]) n_ok++;
-   //}
    printf ("Valid events: %d / %d\n", n_ok, n_events);
 
 
-   ///for (long long i = 0; i < n_events; i++) {
-   ///   if (oks_cpu[i] != oks_gpu[i]) {
-   ///      if (oks_cpu[i]) {
-   ///        printf ("CPU OK, GPU FAIL: %d\n", i);
-   ///      } else {
-   ///        printf ("GPU OK, CPU FAIL: %d\n", i);
-   ///      }
-   ///   }
-   ///}
-   free(p);
+   free(p_gpu);
+   free(factors_gpu);
+   free(volumes_gpu);
+   free(oks_gpu);
 }
 
 int main (int argc, char *argv[]) {
@@ -215,13 +197,11 @@ int main (int argc, char *argv[]) {
       printf ("No json file given!\n");
       return -1;
    }
-   //char *ref_file = argv[1];
-   // Check that the ref file exists
-   //
-   init_logfiles ("input.log", "cuda.log");
 
-   //read_input_json ("config.json");
+   // TODO: Check that the input json exists.
    read_input_json (argv[1]);
+
+   init_logfiles ("input.log", "cuda.log");
 
    int n_prt_tot, n_prt_out;
    int filepos = 0;

@@ -76,8 +76,6 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
    }
 }
 
-static int first = 1;
-
 void set_msq_cpu (int channel, int branch_idx,
                   double *x, long long *id_x, double sqrts, double *msq,
                   double *factor, double *volume, bool *ok, double *p_decay) {
@@ -278,14 +276,17 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 }
 
 #define BYTES_PER_GB 1073741824
-///void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_x, double *x,
-///                         int *channels, double *factors, double *volumes, bool *oks, phs_prt_t *prt) {
-void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, double *x,
-                         int *channels, int *n_oks, double *p_gpu, bool *oks_gpu) {
+void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_out, int n_x, double *x,
+                                        int *channels, long long *n_oks, double *p_gpu, bool *oks_gpu) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
+
+// The CPU routine should mimic the corresponding one in Whizard as closely as possible.
+// For this reason, no contiguous 1D array is used, but the data structure "prt" from Whizard
+// is reused. It has N_PRT elements.
    phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * sizeof(phs_prt_t));
    memset (prt, 0, 4 * N_PRT * sizeof(double));
+
    m_max = (double*)malloc(N_PRT * sizeof(double));
    double factor, volume;
    bool ok;
@@ -293,12 +294,6 @@ void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, d
    memset (p_decay, 0, N_PRT * sizeof(double));
    memset (msq, 0, N_PRT * sizeof(double));
    memset (m_max, 0, N_PRT * sizeof(double));
-
-   xcounter_t xc;
-   xc.nx = n_x;
-   xc.id_gpu = NULL;
-   xc.id_cpu = 0;
-   xc.x = x;
 
    double L0[4][4];
    memset (L0, 0, 16 * sizeof(double));
@@ -309,21 +304,17 @@ void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, d
 
    *n_oks = 0;
    for (long long i = 0; i < n_events; i++) {
-      //oks[i] = true;
       ok = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       memset (p_decay, 0, N_PRT * sizeof(double));
       long long id_x = 0;
-      if (i == 0) printf ("xcpu: %lf %lf %lf %lf %lf\n", x[0], x[1], x[2], x[3], x[4]);
-      if (i == 0) printf ("id_x: %d\n", id_x);
       set_msq_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts, msq, &factor, &volume, &ok, p_decay); 
       if (ok) {
          set_angles_cpu (c, ROOT_BRANCH, x + n_x * i, &id_x, sqrts * sqrts, msq, &factor, p_decay, prt, L0);
       } else {
         //printf ("Not ok CPU: %d\n", i);
       }
-      first = 0;
 
       if (input_control.check_cpu && ok) {
          for (int n = 0; n < n_out; n++) {
@@ -339,14 +330,14 @@ void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, d
                                                        prt[nn].p[2], prt[nn].p[3]);
 
             }
-         //}
+        }
       }
       if (ok) (*n_oks)++;
-   }
    }
 
    free (p_decay);
    free (msq);
    free (m_max);
+   free (prt);
 }
 

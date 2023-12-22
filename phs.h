@@ -65,8 +65,8 @@ void gen_phs_from_x_gpu (long long n_events,
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
-void gen_phs_from_x_cpu (double sqrts, long long n_events, int n_out, int n_x, double *x, int *channels,
-                         int *n_ok, double *p_gpu, bool *);
+void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_out, int n_x, double *x, int *channels,
+                                        long long *n_ok, double *p_gpu, bool *oks_gpu);
 
 
 
