@@ -17,22 +17,15 @@ void read_input_json (const char *filename) {
       text += line + "\n";
    }
 
-   printf ("FOO: %s\n", text.c_str());
-
    rapidjson::Document d;
    d.Parse (text.c_str());  
 
-   printf ("Get ref_file\n");
    assert (d["ref_file"].IsString());
    input_control.ref_file = strdup(d["ref_file"].GetString());
 
-   printf ("Get verify\n");
-   //s = d["verify"];
    bool verify_whizard;
    if (d.HasMember("verify")) {
-      printf ("HUHU\n");
       assert (d["verify"].IsString());
-      //verify_whizard = d.GetBool();
       verify_whizard = d["verify"].GetString() == "whizard";
    } else {
       verify_whizard = true;
@@ -56,7 +49,6 @@ void read_input_json (const char *filename) {
        } else {
           std::abort();
        }
-       //s = d["warmup"];
        if (d.HasMember("warmup")) {
           assert (d["warmup"]["n_trials"].IsInt());
           input_control.warmup_trials = d["warmup"]["n_trials"].GetInt();
@@ -91,7 +83,12 @@ void read_input_json (const char *filename) {
       input_control.ab_threads = NTHREADS_DEFAULT;
    } 
 
-   input_control.check_cpu = false;
+   if (d.HasMember("check_cpu")) {
+      assert (d["check_cpu"].IsBool());
+      input_control.check_cpu = d["check_cpu"].GetBool();
+   } else {
+      input_control.check_cpu = false;
+   }
 
 }
 

@@ -316,6 +316,9 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_
         //printf ("Not ok CPU: %d\n", i);
       }
 
+      // The runtime check does not have a large impact on the measured time, but it is observable.
+      // With this flag, we can switch it off to get the most reliable result.
+      // That one if statement which remains does not make a difference.
       if (input_control.check_cpu && ok) {
          for (int n = 0; n < n_out; n++) {
             double *p = &p_gpu[4*n_out*i + 4*n];
