@@ -167,6 +167,12 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
    t2 = mysecond();
    printf ("GPU: %lf sec\n", t2 - t1);
+   printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
+   printf ("   Memcpy Out: %lf\n", gpu_timers[TIME_MEMCPY_OUT]);
+   printf ("   Kernel Init: %lf\n", gpu_timers[TIME_KERNEL_INIT]);
+   printf ("   Kernel MSQ: %lf\n", gpu_timers[TIME_KERNEL_MSQ]);
+   printf ("   Kernel Create Boosts: %lf\n", gpu_timers[TIME_KERNEL_CB]);
+   printf ("   Kernel Apply Boosts: %lf\n", gpu_timers[TIME_KERNEL_AB]);
 
    n_ok = 0;
    for (long long i = 0; i < n_events; i++) {
@@ -201,7 +207,7 @@ int main (int argc, char *argv[]) {
    // TODO: Check that the input json exists.
    read_input_json (argv[1]);
 
-   init_logfiles ("input.log", "cuda.log");
+   init_monitoring ("input.log", "cuda.log");
 
    int n_prt_tot, n_prt_out;
    int filepos = 0;
@@ -300,6 +306,6 @@ int main (int argc, char *argv[]) {
                           n_x, n_channels, n_in, n_out);
    }
 
-   final_logfiles();
+   final_monitoring();
    return 0;
 }

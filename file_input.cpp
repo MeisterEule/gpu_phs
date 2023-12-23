@@ -30,7 +30,6 @@ void read_input_json (const char *filename) {
    } else {
       verify_whizard = true;
    }
-   printf ("Result: %d\n", verify_whizard);
 
    if (!verify_whizard) {
        if (d.HasMember("n_events") && d.HasMember("gpu_memory")) {
@@ -39,9 +38,7 @@ void read_input_json (const char *filename) {
        if (d.HasMember("gpu_memory")) {
           assert (d["gpu_memory"].IsInt());
           input_control.run_type = RT_INTERNAL_FIXED_MEMORY;
-          printf ("Check: %d\n", d["gpu_memory"].GetInt());
           input_control.gpu_memory = d["gpu_memory"].GetInt64() * 1024 * 1024;
-          printf ("Check 2: %lld\n", input_control.gpu_memory);
        } else if (d.HasMember("n_events")) {
           assert (d["n_events"].IsInt());
           input_control.run_type = RT_INTERNAL_FIXED_N;

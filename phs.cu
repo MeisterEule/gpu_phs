@@ -558,17 +558,15 @@ __global__ void _apply_boost_targets (long long N, int *channels, int *cmd, int 
 void gen_phs_from_x_gpu (long long n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h) {
+   START_TIMER(TIME_MEMCPY_IN);
    double *x_d;
    long long *id_d;
-   printf ("x: %lf %lf %lf %lf %lf\n", x_h[0], x_h[1], x_h[2], x_h[3], x_h[4]);
    cudaMalloc((void**)&x_d, n_x * n_events * sizeof(double));
    cudaMalloc((void**)&id_d, n_events * sizeof(long long));
    xcounter_t *xc;
    cudaMalloc((void**)&xc, sizeof(xcounter_t));
    cudaMemcpy (x_d, x_h, n_x * n_events * sizeof(double), cudaMemcpyHostToDevice);
    cudaMemset (id_d, 0, n_events * sizeof(long long));
-   _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
-   printf ("Init 0: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    int *cmds_msq_d, *cmds_boost_o_d, *cmds_boost_t_d;
    cudaMalloc((void**)&cmds_msq_d, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
@@ -594,46 +592,62 @@ void gen_phs_from_x_gpu (long long n_events,
    cudaMalloc ((void**)&volumes_d, N_BRANCHES * n_events * sizeof(double));
    bool *oks_d;
    cudaMalloc ((void**)&oks_d, n_events * sizeof(bool));
-   _init_fv<<<n_events/1024 + 1,1024>>> (n_events, factors_d, volumes_d, oks_d);
 
    double *Ld;
    cudaMalloc((void**)&Ld, n_events * 16 * N_BOOSTS * sizeof(double));
-   _init_first_boost<<<n_events/1024 + 1,1024>>>(n_events, Ld); // Does not work with static __device__
 
    int *channels_d;
    cudaMalloc((void**)&channels_d, n_events * sizeof(int));
    cudaMemcpy (channels_d, channels, n_events * sizeof(int), cudaMemcpyHostToDevice);
    cudaDeviceSynchronize();
-   printf ("Init: %s\n", cudaGetErrorString(cudaGetLastError()));
+   STOP_TIMER(TIME_MEMCPY_IN);
+
+   START_TIMER(TIME_KERNEL_INIT);
+   _init_first_boost<<<n_events/1024 + 1,1024>>>(n_events, Ld); // Does not work with static __device__
+   _init_fv<<<n_events/1024 + 1,1024>>> (n_events, factors_d, volumes_d, oks_d);
+   _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
+   cudaDeviceSynchronize();
+   STOP_TIMER(TIME_KERNEL_INIT);
+
+   CHECK_CUDA_STATE(SAFE_CUDA_INIT);
+   //printf ("Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    int nt = input_control.msq_threads;
    int nb = n_events / nt + 1;
 
-   cudaDeviceSynchronize();
-
    double sqrts = 1000;
+   START_TIMER(TIME_KERNEL_MSQ);
    _apply_msq<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_msq_d,
                          N_BRANCHES_INTERNAL, xc, p_decay, msq_d, factors_d, volumes_d, oks_d);
    cudaDeviceSynchronize();
+   STOP_TIMER(TIME_KERNEL_MSQ);
 
-   printf ("MSQ: %s\n", cudaGetErrorString(cudaGetLastError()));
+   CHECK_CUDA_STATE(SAFE_CUDA_MSQ);
+   //printf ("MSQ: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    nt = input_control.cb_threads;
    nb = n_events / nt  + 1;
+   START_TIMER(TIME_KERNEL_CB);
    _create_boosts<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
                              xc, msq_d, p_decay, Ld, factors_d);
 
    cudaDeviceSynchronize();
-   printf ("Create boost: %s\n", cudaGetErrorString(cudaGetLastError()));
+   STOP_TIMER(TIME_KERNEL_CB);
+   CHECK_CUDA_STATE(SAFE_CUDA_CB);
+   //printf ("Create boost: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    nt = input_control.ab_threads;
    nb = n_events / nt  + 1;
+   START_TIMER(TIME_KERNEL_AB);
    _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT,
                                     Ld, msq_d, p_decay, prt_d);
 
    cudaDeviceSynchronize();
-   printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
+   STOP_TIMER(TIME_KERNEL_AB);
+   CHECK_CUDA_STATE(SAFE_CUDA_AB);
+   //printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
 
+   START_TIMER(TIME_MEMCPY_OUT);
    int n_out = N_BRANCHES - N_BRANCHES_INTERNAL;
    // This can also be done on the device, primarily to avoid large temporary arrays.
    double *copy = (double*)malloc(4 * N_BRANCHES * n_events * sizeof(double));
@@ -658,12 +672,8 @@ void gen_phs_from_x_gpu (long long n_events,
       volumes_h[i] = copy[N_BRANCHES*i];
    }
 
-   //bool *copy_ok = (bool*)malloc(d.n_events_gen * sizeof(bool));
-   //cudaMemcpy (copy_ok, oks_d, d.n_events_gen * sizeof(bool), cudaMemcpyDeviceToHost);
-   //for (int i = 0; i < d.n_events_gen; i++) {
-   //   oks_h[i] = copy_ok[i];
-   //}
    cudaMemcpy (oks_h, oks_d, n_events * sizeof(bool), cudaMemcpyDeviceToHost);
+   STOP_TIMER(TIME_MEMCPY_OUT);
 
    free(copy);
 

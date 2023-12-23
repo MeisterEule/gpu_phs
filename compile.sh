@@ -2,7 +2,7 @@
 
 INC="./external/include"
 set -ex
-nvcc -I$INC -arch=sm_80 -res-usage -c phs.cu -o phs.o
+nvcc -I$INC -res-usage -c phs.cu -o phs.o
 nvcc -I$INC -c phs_cpu.cpp -o phs_cpu.o
 nvcc -I$INC -c monitoring.cpp -o monitoring.o
 nvcc -I$INC -c file_input.cpp -o file_input.o

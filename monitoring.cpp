@@ -5,7 +5,8 @@
 
 #include "monitoring.h"
 
-double gpu_timers[5] = {0, 0, 0, 0, 0};
+double gpu_timers[6] = {0, 0, 0, 0, 0, 0};
+const char *cuda_checks[4] = {"Init", "MSQ", "Create Boosts", "Apply Boosts"};
 
 FILE *logfl[2] = {NULL, NULL};
 
@@ -16,12 +17,12 @@ double mysecond () {
     return ((double)tp.tv_sec + (double)tp.tv_usec * 1.e-6);
 }
 
-void init_logfiles (char *filename_input, char *filename_cuda) {
+void init_monitoring (char *filename_input, char *filename_cuda) {
    logfl[LOG_INPUT] = fopen (filename_input, "w+");
    logfl[LOG_CUDA] = fopen (filename_cuda, "w+");
 }
 
-void final_logfiles () {
+void final_monitoring () {
    for (int i = 0; i < 2; i++) {
       fclose(logfl[i]);
       logfl[i] = NULL;
