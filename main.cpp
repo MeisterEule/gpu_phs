@@ -153,7 +153,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
       for (long long i = 0; i < n_trial_events_tot; i++) {
          if (oks_gpu[i]) n_ok++;
       }
-      printf ("Trial %d: %d / %d\n", i, n_ok, n_trial_events_tot);
+      printf ("Trial %d: %d / %d (%.2f%%)\n", i, n_ok, n_trial_events_tot, (float)n_ok / n_trial_events_tot * 100);
 
       update_weights (n_x, n_channels, n_trial_events_tot, channels, x, oks_gpu);
    }
