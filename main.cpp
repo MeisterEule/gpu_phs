@@ -165,6 +165,10 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
      channels[i] = i / n_events_per_channel;
    }
 
+// Reset GPU timers
+   for (int i = 0; i < 6; i++) {
+      gpu_timers[i] = 0;
+   }
 
    // Now do the real time measurement with the adapted grids
    printf ("Perform optimized GPU run with %lld events (%lld per channel):\n", n_events, n_events_per_channel);
@@ -188,7 +192,6 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
      if (oks_gpu[i]) n_ok++;
    }
    printf ("Valid events: %d / %d\n", n_ok, n_events);
-
 
 // This implementation saves CPU RAM by discarding an event after it has been validated against
 // the correct GPU event. CPU RAM requirements increase faster than GPU requirements because
