@@ -216,7 +216,7 @@ int main (int argc, char *argv[]) {
       return -1;
    }
 
-   // TODO: Check that the input json exists.
+   // TODO: Check that the logfile in the json exists.
    read_input_json (argv[1]);
 
    init_monitoring ("input.log", "cuda.log");
