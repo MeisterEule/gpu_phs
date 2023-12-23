@@ -42,6 +42,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
 
    long long mem_gpu = required_gpu_mem (n_events, n_x);
    long long mem_cpu = required_cpu_mem (n_events, n_x);
+   printf ("Perform Whizard crosscheck with %lld events (%lld per channel):\n", n_events, n_events / n_channels);
    printf ("Required GPU memory: %lf GiB\n", (double)mem_gpu / BYTES_PER_GB);
    printf ("Required CPU memory: %lf GiB\n", (double)mem_cpu / BYTES_PER_GB);
 
@@ -63,11 +64,19 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
    double t2 = mysecond();
 
    printf ("GPU: %lf sec\n", t2 - t1);
+   printf ("GPU: %lf sec\n", t2 - t1);
+   printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
+   printf ("   Memcpy Out: %lf\n", gpu_timers[TIME_MEMCPY_OUT]);
+   printf ("   Kernel Init: %lf\n", gpu_timers[TIME_KERNEL_INIT]);
+   printf ("   Kernel MSQ: %lf\n", gpu_timers[TIME_KERNEL_MSQ]);
+   printf ("   Kernel Create Boosts: %lf\n", gpu_timers[TIME_KERNEL_CB]);
+   printf ("   Kernel Apply Boosts: %lf\n", gpu_timers[TIME_KERNEL_AB]);
+
+
    FILE *fp = fopen ("compare.gpu", "w+");
    compare_phs_gpu_vs_ref (fp, n_events, channels, n_in, n_out, pval, p, factors, volumes);
    fclose(fp);
    fp = NULL;
-
 
    free (p);
    free (factors);

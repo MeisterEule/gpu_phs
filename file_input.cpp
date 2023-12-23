@@ -26,7 +26,7 @@ void read_input_json (const char *filename) {
    bool verify_whizard;
    if (d.HasMember("verify")) {
       assert (d["verify"].IsString());
-      verify_whizard = d["verify"].GetString() == "whizard";
+      verify_whizard = !strcmp(d["verify"].GetString(), "whizard");
    } else {
       verify_whizard = true;
    }
