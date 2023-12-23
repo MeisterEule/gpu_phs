@@ -132,8 +132,6 @@ long long required_cpu_mem (long long n_events, int n_x) {
    // Random numbers
    mem += n_x * n_events * sizeof(double);
    // prt
-   mem += 4 * N_PRT * n_events * sizeof(double);
-   // factors, volumes
-   mem += 2 * n_events * sizeof(double);
+   mem += 4 * N_PRT * sizeof(double);
    return mem;
 }

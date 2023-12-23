@@ -158,7 +158,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
 
 
    // Now do the real time measurement with the adapted grids
-   printf ("Perform optimized GPU run with %lld events:\n", n_events);
+   printf ("Perform optimized GPU run with %lld events (%lld per channel):\n", n_events, n_events_per_channel);
    printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem ((long long)n_events, n_x) / BYTES_PER_GB);
    printf ("Required CPU memory: %lf GiB\n", (double)required_cpu_mem ((long long)n_events, n_x) / BYTES_PER_GB);
 
