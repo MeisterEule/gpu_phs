@@ -29,7 +29,9 @@ It must be noted that in step one, the random numbers given to the function can 
 
 ## Porting approach
 
+When porting to a GPU, these are the major points that need to be addressed
 
+1. Generally, branches (if-statements) should be avoided as much as possible. A GPU core (SMT) cannot evaluate branches like a CPU does. Instead, for each branch, a separate run of the kernel is performed. Each time, all the threads take part, but only the ones for which the condition is true are actually computed on. This is a waste of resources, especially for deeply nested branch conditions. In the phase space generation, branches take place at two important places: The recursion and the selection of mapping functions. The first issue is discussed in the next point below. 
 
 ## Performance Considerations
 
