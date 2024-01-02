@@ -51,4 +51,6 @@ The program contains timers which measure the six GPU-relevant contributions: Me
 The dominating contribution is not surprisingly the transfer of kinematical variables from the device to the host, making up about half of the total GPU time. This number must be considered with caution because of two aspects: First, it also contains the translation of momenta from the GPU format to the Whizard format, which happens serially on the CPU. This contributes to 50% to the total Memcpy time, making up 25% of the entire GPU time. The second, more important, aspect, making it doubtful if an optimization of the first issue is worthwhile, is the fact that in an event generator, the generated momenta would be kept on the device for the entire computation. Therefore, the Memcpy contribution is a remnant of this setup.
 The second largest chunk of runtime is taken up by the creation of boosts. There a sequential multiplications of 4 x 4 matrices for each thread, something which can probably be optimized by employing higher levels of parallelism.
 
+The plot below shows the projected GPU runtime, with the Memcpy contribution subtracted from it.
 
+![](uu4g_gpu_vs_cpu_reduced.png)
