@@ -12,8 +12,6 @@ int N_PRT_IN = 0;
 int N_PRT_OUT = 0;
 int PRT_STRIDE = 0;
 int ROOT_BRANCH = 0;
-//int N_PART = 0;
-//int N_BOOSTS = 0;
 int N_BRANCHES = 0;
 int N_BRANCHES_INTERNAL = 0;
 int N_MSQ = 0;
@@ -24,12 +22,10 @@ int N_LAMBDA_OUT = 0;
 
 __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
-//__device__ int DN_PART;
 __device__ int DN_BRANCHES;
 __device__ int DPRT_STRIDE;
 __device__ int DPART_STRIDE;
 __device__ int DN_BOOSTS;
-//__device__ int DROOT_BRANCH;
 __device__ int DN_LAMBDA_IN;
 __device__ int DN_LAMBDA_OUT;
 
@@ -39,22 +35,15 @@ int **daughters1 = NULL;
 int **daughters2 = NULL;
 int **has_children = NULL;
 
-///int **boost_origins = NULL;
-///int **boost_targets = NULL;
-
 int **i_scatter = NULL;
 int **i_gather = NULL;
 
-//int *n_cmd_msq = NULL;
 int *cmd_msq = NULL;
 
 int *cmd_boost_o = NULL;
 int *cmd_boost_t = NULL;
-//int n_cmd_t = 0;
 
 static double *m_max = NULL;
-
-//__device__ double *Ld = NULL;
 
 template <typename T> void cudaMemcpyMaskedH2D (int N, int *idx, T *field_d, T *field_h) {
    T *tmp = (T*)malloc(N * sizeof(T));
@@ -110,6 +99,8 @@ void set_mappings (int channel) {
    }
 }
 
+// A helper struct to cast one-dimensional arrays to 4 x 4 matrices, to use more intuitive
+// matrix indices. This has no performance impact.
 struct boost {
   double l[4][4];
 };
@@ -148,8 +139,6 @@ __global__ void _set_device_constants (int _n_prt, int _n_prt_out, int _prt_stri
   DN_PRT = _n_prt;
   DN_PRT_OUT = _n_prt_out;
   DPRT_STRIDE = _prt_stride;
-  //DN_BOOSTS = _n_boosts + 1;
-  //DROOT_BRANCH = _root_branch;
   DN_BRANCHES = _n_branches;
   DN_BOOSTS = _n_lambda_in + 1;
   DN_LAMBDA_IN = _n_lambda_in;
@@ -186,7 +175,6 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int
       int k1 = daughters1[channel][branch_idx];
       int k2 = daughters2[channel][branch_idx];
       boost_cmd_t b;
-      //b.b[0] = branch_idx;
       b.b[0] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather(channel, branch_idx);
       b.b[1] = *boost_counter;
       b.b[2] = parent_boost->back();
@@ -202,7 +190,6 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int
 void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int branch_idx, std::list<int> *boost_idx, int *boost_counter) {
    boost_cmd_t b;
    b.b[0] = boost_idx->back();
-   //b.b[1] = branch_idx;
    b.b[1] = search_in_igather(channel, branch_idx);
    b.b[2] = -1;
    cmd_list->push_back(b);
@@ -401,6 +388,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
   }
 }
 
+// This is the main kernel for the first step of momentum generation. Using the decay triplets
+// stored in cmd, it calls the mapping function and fills the msq and p_decay arrays.
+// The Root branch is treated separately, because there is no mapping function involved
+// and factor and volume are just the products of the children variables.
+
 __global__ void _apply_msq (long long N, double sqrts, int *channels, int *cmd, int n_cmd,
                             xcounter_t *xc, double *p_decay,
                             double *msq, double *factors, double *volumes, bool *oks) {
@@ -455,27 +447,6 @@ __global__ void _apply_msq (long long N, double sqrts, int *channels, int *cmd, 
   p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
   factors[DN_BRANCHES * tid] *= sqrt(lda) / msq0;
   oks[tid] &= (msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= mm_max);
-}
-
-__global__ void _apply_decay (int N, double sqrts, int channel, int *cmd, int n_cmd,
-                              double *msq, double *p_decay, double *factors) {
-  int tid = threadIdx.x + blockDim.x * blockIdx.x;
-  if (tid >= N) return;
-  for (int c = 0; c < n_cmd; c++) {
-     int k1 = cmd[3 * n_cmd * channel + 3 * c];
-     int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
-     int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
-     double msq0 = msq[DN_BRANCHES * tid + branch_idx];
-     double msq1 = msq[DN_BRANCHES * tid + k1];
-     double msq2 = msq[DN_BRANCHES * tid + k2];
-     double m0 = sqrt(msq0);
-     double m1 = sqrt(msq1);
-     double m2 = sqrt(msq2);
-     double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
-     p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
-     p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
-     factors[DN_BRANCHES * tid + branch_idx] *= sqrt(lda) / msq0;
-  }
 }
 
 __global__ void _create_boosts (long long N, double sqrts, int *channels, int *cmd, int n_cmd,
@@ -610,7 +581,6 @@ void gen_phs_from_x_gpu (long long n_events,
    STOP_TIMER(TIME_KERNEL_INIT);
 
    CHECK_CUDA_STATE(SAFE_CUDA_INIT);
-   //printf ("Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    int nt = input_control.msq_threads;
    int nb = n_events / nt + 1;
@@ -623,7 +593,6 @@ void gen_phs_from_x_gpu (long long n_events,
    STOP_TIMER(TIME_KERNEL_MSQ);
 
    CHECK_CUDA_STATE(SAFE_CUDA_MSQ);
-   //printf ("MSQ: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    nt = input_control.cb_threads;
    nb = n_events / nt  + 1;
@@ -634,7 +603,6 @@ void gen_phs_from_x_gpu (long long n_events,
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_CB);
    CHECK_CUDA_STATE(SAFE_CUDA_CB);
-   //printf ("Create boost: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    nt = input_control.ab_threads;
    nb = n_events / nt  + 1;
