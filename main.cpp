@@ -14,6 +14,9 @@
 #include "phs.h"
 #include "file_input.h"
 
+double *flv_masses;
+double *flv_widths;
+
 void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, 
                                 int n_in, int n_out, int filepos_start_mom) {
    long long n_events = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos_start_mom);
@@ -128,7 +131,6 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
       channels[i] = i / n_trial_events;
    }
 
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts * sqrts);
 
    double *p_gpu = (double*)malloc(4 * n_out * n_events * sizeof(double));
@@ -210,6 +212,29 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    free(oks_gpu);
 }
 
+void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
+   if (channel == 0) printf ("Set mass: %d (%d)\n", branch_idx, has_children[channel][branch_idx]);
+   if (has_children[channel][branch_idx]) {
+      int k1 = daughters1[channel][branch_idx];
+      int k2 = daughters2[channel][branch_idx];
+      if (channel == 0) printf ("%d -> %d  %d\n", branch_idx, k1, k2);
+      double mass_acc1, mass_acc2;
+      set_mass_sum (channel, mass_sum, k1);
+      set_mass_sum (channel, mass_sum, k2);
+      mass_sum[branch_idx] = mass_sum[k1] + mass_sum[k2]; 
+   } else {
+      if (channel == 0) printf ("Final particle: %d\n", branch_idx);
+      // Poor man's integer ld2
+      int ld2 = 0;
+      int bb = branch_idx + 1;
+      while (bb > 1) {
+         bb = bb / 2;
+         ld2++;
+      }
+      mass_sum[branch_idx] = flv_masses[ld2 + 2];
+   }
+} 
+
 int main (int argc, char *argv[]) {
    if (argc < 2) {
       printf ("No json file given!\n");
@@ -256,19 +281,26 @@ int main (int argc, char *argv[]) {
    daughters2 = (int**)malloc(n_channels * sizeof(int*));
    has_children = (int**)malloc(n_channels * sizeof(int*));
    mappings_host = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
-   for (int i = 0; i < n_channels; i++) {
-      daughters1[i] = (int*)malloc(N_PRT * sizeof(int));
-      daughters2[i] = (int*)malloc(N_PRT * sizeof(int));
-      has_children[i] = (int*)malloc(N_PRT * sizeof(int));
-      mappings_host[i].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
-      mappings_host[i].comp_msq = NULL;
-      mappings_host[i].comp_ct = NULL;
-      mappings_host[i].a = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
-      mappings_host[i].b = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
-      mappings_host[i].masses = (double*)malloc(N_PRT_OUT * sizeof(double));
-      mappings_host[i].widths = (double*)malloc(N_PRT_OUT * sizeof(double));
+   flv_masses = (double*)malloc((n_in + n_out) * sizeof(double));
+   flv_widths = (double*)malloc((n_in + n_out) * sizeof(double));
+   for (int c = 0; c < n_channels; c++) {
+      daughters1[c] = (int*)malloc(N_PRT * sizeof(int));
+      daughters2[c] = (int*)malloc(N_PRT * sizeof(int));
+      has_children[c] = (int*)malloc(N_PRT * sizeof(int));
+      mappings_host[c].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
+      mappings_host[c].comp_msq = NULL;
+      mappings_host[c].comp_ct = NULL;
+      mappings_host[c].a = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
+      mappings_host[c].b = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
+      mappings_host[c].masses = (double*)malloc(N_PRT_OUT * sizeof(double));
+      mappings_host[c].widths = (double*)malloc(N_PRT_OUT * sizeof(double));
+      mappings_host[c].mass_sum = (double*)malloc(N_PRT_OUT * sizeof(double));
+      memset (mappings_host[c].mass_sum, 0, N_PRT_OUT * sizeof(double));
    }
    read_tree_structures (input_control.ref_file, n_channels, N_PRT, N_PRT_OUT, &filepos);
+   for (int c = 0; c < n_channels; c++) {
+      set_mass_sum (c, mappings_host[c].mass_sum, ROOT_BRANCH);
+   }
 
    for (int c = 0; c < n_channels; c++) {
       fprintf (logfl[LOG_INPUT], "Channel %d: \n", c);
@@ -299,7 +331,25 @@ int main (int argc, char *argv[]) {
          fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].widths[i]);
       }
       fprintf (logfl[LOG_INPUT], "\n");
+      fprintf (logfl[LOG_INPUT], "\nmass_sum: ");
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].mass_sum[i]);
+      }
+      fprintf (logfl[LOG_INPUT], "\n");
+
    }
+   fprintf (logfl[LOG_INPUT], "flv_masses: ");
+   for (int i = 0; i < 5; i++) {
+      fprintf (logfl[LOG_INPUT], "%lf ", flv_masses[i]);
+   }
+   fprintf (logfl[LOG_INPUT], "\nflv_widths: ");
+   for (int i = 0; i < 5; i++) {
+      fprintf (logfl[LOG_INPUT], "%lf ", flv_widths[i]);
+   }
+   fprintf (logfl[LOG_INPUT], "\n");
+   // Flush here so that, in case that the input is broken and there's an error down the line,
+   // we have the debug output.
+   fflush(logfl[LOG_INPUT]);
 
 
     

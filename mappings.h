@@ -22,6 +22,7 @@ typedef struct {
    map_constant_t *b;
    mapping_msq_sig **comp_msq;
    mapping_ct_sig **comp_ct;
+   double *mass_sum;
 } mapping_t;
 
 

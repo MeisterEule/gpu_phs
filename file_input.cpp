@@ -126,8 +126,9 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
 
    int counter = 0;
    int tmp;
-   const int n_line_elements = 6; // 2 x daughters + children + mappings + masses + widths
-   while (getline (reader, line) && counter < n_line_elements * n_trees) {
+   const int n_line_elements = 6; // 2 x daughters + children + mappings + map_masses + map_widths
+   while (counter < n_line_elements * n_trees) {
+      getline (reader, line);
       std::stringstream ss(line);
       ss >> dummy;
       int cm = counter % n_line_elements;
@@ -166,8 +167,22 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
          }
       }
      counter++;
-     *filepos = reader.tellg();
    } 
+   // flv_masses + flv_widths
+   getline (reader, line);
+   std::stringstream ss(line);
+   ss >> dummy;
+   for (int i = 0; i < 5; i++) {
+      ss >> flv_masses[i];
+   }
+   getline (reader, line);
+   ss.clear();
+   ss.str(line);
+   ss >> dummy;
+   for (int i = 0; i < 5; i++) {
+      ss >> flv_widths[i];
+   }
+   *filepos = reader.tellg();
 }
 
 void read_reference_momenta (const char *ref_file, int filepos,

@@ -54,6 +54,8 @@ extern int **i_scatter;
 extern int **i_gather;
 
 extern mapping_t *mappings_host;
+extern double *flv_masses;
+extern double *flv_widths;
 
 int search_in_igather (int c, int x);
 
