@@ -5,7 +5,7 @@ CXX=g++
 LD=$(NVCC)
 
 CXXFLAGS=
-NVCCFLAGs=-res-usage
+NVCCFLAGS=-res-usage
 
 INC=./external/include
 
