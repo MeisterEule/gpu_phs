@@ -393,6 +393,22 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
   }
 }
 
+__global__ void _init_msq (long long N, int n_in, int n_out, int n_channels, int *channels, int *i_scatter, double *flv_masses, double *msq) {
+  long long tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  int channel = channels[tid];
+  for (int i = 0; i < n_out; i++) {
+     int i_ext = 0;
+     int xx = i_scatter[3 * channel + i];
+     while (xx > 1) {
+        xx = xx / 2;
+        i_ext++;
+     }
+     double m = flv_masses[n_in + i_ext];
+     msq[DN_BRANCHES * tid + i_scatter[3 * channel + i]] = m * m;
+  }
+}
+
 // This is the main kernel for the first step of momentum generation. Using the decay triplets
 // stored in cmd, it calls the mapping function and fills the msq and p_decay arrays.
 // The Root branch is treated separately, because there is no mapping function involved
@@ -590,6 +606,24 @@ void gen_phs_from_x_gpu (long long n_events,
 
    int nt = input_control.msq_threads;
    int nb = n_events / nt + 1;
+
+   int *tmp, *i_scatter_d;
+   tmp = (int*)malloc(3 * n_channels * sizeof(int));
+   for (int c = 0; c < n_channels; c++) {
+      for (int i = 0; i < 3; i++) {
+         tmp[3 * c + i] = i_scatter[c][i];
+      }
+   }
+   cudaMalloc((void**)&i_scatter_d, n_channels * 3 * sizeof(int));
+   // Why does this not work? The array is probably not contiguous
+   //cudaMemcpy (i_scatter_d, &i_scatter[0][0], n_channels * 3 * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy (i_scatter_d, tmp, n_channels * 3 * sizeof(int), cudaMemcpyHostToDevice);
+   free(tmp);
+   double *flv_masses_d;
+   cudaMalloc((void**)&flv_masses_d, (2 + 3)*sizeof(double));
+   cudaMemcpy (flv_masses_d, flv_masses, (2 + 3) * sizeof(double), cudaMemcpyHostToDevice);
+   _init_msq<<<nb,nt>>>(n_events, 2, 3, n_channels, channels_d, i_scatter_d, flv_masses_d, msq_d);
+   cudaDeviceSynchronize();
 
    double sqrts = 1000;
    START_TIMER(TIME_KERNEL_MSQ);
