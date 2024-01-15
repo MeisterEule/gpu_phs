@@ -86,9 +86,10 @@ __device__ void mapping_ct_from_x_collinear (double x, double s, double *b, doub
    }
 }
 
-__global__ void _init_mapping_constants (int n_channels, int n_part, double s, double msq_min, double msq_max) {
+__global__ void _init_mapping_constants (int n_channels, int n_part, double sqrts) {
    double msq0;
    for (int c = 0; c < n_channels; c++) {
+      double m_tot = mappings_d[c].mass_sum[0];
       for (int i = 0; i < n_part; i++) {
          int map_id = mappings_d[c].map_id[i];
          double *a1 = mappings_d[c].a[i].a;
@@ -99,6 +100,11 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double s, d
          double *b3 = mappings_d[c].b[i].a + 2;
          double m = mappings_d[c].masses[i];
          double w = mappings_d[c].widths[i];
+         double m_min = mappings_d[c].mass_sum[i];
+         double m_max = sqrts - m_tot + m_min;
+         double msq_min = m_min * m_min;
+         double msq_max = m_max * m_max;
+         double s = sqrts * sqrts;
          // Compute a for msq
          switch (map_id) {
             case MAP_NO:

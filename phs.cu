@@ -216,7 +216,7 @@ __global__ void _init_first_boost (long long N, double *L) {
    LL->l[3][3] = 1;
 }
 
-void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
+void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
 
    _set_device_constants<<<1,1>>>(ROOT_BRANCH, N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
                                   N_LAMBDA_IN, N_LAMBDA_OUT);
@@ -339,7 +339,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s) {
    cudaFree(w);
    cudaFree(ms);
    cudaDeviceSynchronize();
-   _init_mapping_constants<<<1,1>>> (n_channels, N_BRANCHES, s, 0, s);
+   _init_mapping_constants<<<1,1>>> (n_channels, N_BRANCHES, sqrts);
    for (int c = 0; c < n_channels; c++) {
       set_mappings(c);
    }
