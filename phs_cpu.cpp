@@ -10,8 +10,6 @@
 
 mapping_t *mappings_host = NULL;
 
-//static double *m_max = NULL;
-
 void mapping_msq_from_x_cpu (int type, double x, double s, double msq_min, double msq_max, double *a, double *msq, double *factor) {
    double msq1;
    double tmp, z;
@@ -97,16 +95,11 @@ void set_msq_cpu (int channel, int branch_idx, double m_tot,
 
    double m_max;
    if (branch_idx == ROOT_BRANCH) {
-      //memset (m_max, 0, N_PRT * sizeof(double));
       msq[branch_idx] = sqrts * sqrts;
-      //m_max[branch_idx] = sqrts;
       m_max = sqrts;
       *factor = f1 * f2;
       *volume = v1 * v2 / (4 * TWOPI5);
    } else {
-      //m_max[branch_idx] = sqrts;
-      //double msq_min = 0;
-      //double msq_max = sqrts * sqrts;
       double m_min = mappings_host[channel].mass_sum[branch_idx];
       m_max = sqrts - m_tot + m_min;
       double this_msq = 0;
@@ -278,7 +271,7 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
 }
 
 #define BYTES_PER_GB 1073741824
-void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_out, int n_x, double *x,
+void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_x, double *x,
                                         int *channels, long long *n_oks, double *p_gpu, bool *oks_gpu) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
@@ -321,8 +314,8 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_
       // With this flag, we can switch it off to get the most reliable result.
       // That one if statement which remains does not make a difference.
       if (input_control.check_cpu && ok) {
-         for (int n = 0; n < n_out; n++) {
-            double *p = &p_gpu[4*n_out*i + 4*n];
+         for (int n = 0; n < N_EXT_OUT; n++) {
+            double *p = &p_gpu[4*N_EXT_OUT*i + 4*n];
             int nn = pow(2,n) - 1;
             if (fabs (p[0] - prt[nn].p[0]) > 0.00001 
              || fabs (p[1] - prt[nn].p[1]) > 0.00001  

@@ -7,6 +7,10 @@
 #include "monitoring.h"
 #include "file_input.h"
 
+int N_EXT_IN = 0;
+int N_EXT_OUT = 0;
+int N_EXT_TOT = 0;
+
 int N_PRT = 0;
 int N_PRT_IN = 0;
 int N_PRT_OUT = 0;
@@ -19,6 +23,9 @@ int N_BOOSTS = 0;
 int N_LAMBDA_IN = 0;
 int N_LAMBDA_OUT = 0; 
 
+__device__ int DN_EXT_IN;
+__device__ int DN_EXT_OUT;
+__device__ int DN_EXT_TOT;
 
 __device__ int DN_PRT;
 __device__ int DN_PRT_OUT;
@@ -134,9 +141,13 @@ __global__ void _init_fv (long long N, double *factors, double *volumes, bool *o
   oks[tid] = true;
 }
 
-__global__ void _set_device_constants (int _root_branch, int _n_prt, int _n_prt_out, int _prt_stride,
-                                       int _n_branches, int _n_lambda_in,
+__global__ void _set_device_constants (int _root_branch, int _n_in, int _n_out,
+                                       int _n_prt, int _n_prt_out, int _prt_stride,
+                                       int _n_branches, int _n_lambda_in, 
                                        int _n_lambda_out) {
+  DN_EXT_IN = _n_in;
+  DN_EXT_OUT = _n_out;
+  DN_EXT_TOT = DN_EXT_IN + DN_EXT_OUT;
   DN_PRT = _n_prt;
   DN_PRT_OUT = _n_prt_out;
   DPRT_STRIDE = _prt_stride;
@@ -218,7 +229,8 @@ __global__ void _init_first_boost (long long N, double *L) {
 
 void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
 
-   _set_device_constants<<<1,1>>>(ROOT_BRANCH, N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
+   _set_device_constants<<<1,1>>>(ROOT_BRANCH, N_EXT_IN, N_EXT_OUT,
+                                  N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
                                   N_LAMBDA_IN, N_LAMBDA_OUT);
 
    int **d1 = (int**)malloc(n_channels * sizeof(int*));
@@ -255,10 +267,9 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
    }
 
    i_scatter = (int**)malloc(n_channels * sizeof(int*));
-   int n_out = N_BRANCHES - N_BRANCHES_INTERNAL;
    for (int c = 0; c < n_channels; c++) {
-      i_scatter[c] = (int*)malloc(n_out * sizeof(int));
-      for (int i = 0; i < n_out; i++) {
+      i_scatter[c] = (int*)malloc(N_EXT_OUT * sizeof(int));
+      for (int i = 0; i < N_EXT_OUT; i++) {
          i_scatter[c][i] = -1;
          int idx = pow(2,i) - 1;
          for (int j = 0; j < N_BRANCHES; j++) {
@@ -268,10 +279,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
             }
          } 
       }
+   }
 
    for (int c = 0; c < n_channels; c++) {
       fprintf (logfl[LOG_INPUT], "i_scatter[%d]: ", c);
-      for (int i = 0; i < n_out; i++) {
+      for (int i = 0; i < N_EXT_OUT; i++) {
          fprintf (logfl[LOG_INPUT], "%d ", i_scatter[c][i]);
       } 
       fprintf (logfl[LOG_INPUT], "\n");
@@ -394,20 +406,20 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
   }
 }
 
-__global__ void _init_msq (long long N, int n_in, int n_out, int n_channels, int *channels,
+__global__ void _init_msq (long long N, int n_channels, int *channels,
                            int *i_gather, double *flv_masses, double *msq) {
   long long tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid >= N) return;
   int channel = channels[tid];
   for (int i = 0; i < DN_BRANCHES; i++) {
-     int x = i_gather[5 * channel + i] + 1;
+     int x = i_gather[DN_EXT_TOT * channel + i] + 1;
      if ((x & (x - 1)) == 0) { // Power of 2
         int ld = 0;
         while (x > 1) {
            x = x / 2;
            ld++;
         }
-        double m = flv_masses[n_in + ld];
+        double m = flv_masses[DN_EXT_IN + ld];
         msq[DN_BRANCHES * tid + i] = m * m;
      }
   }
@@ -612,22 +624,22 @@ void gen_phs_from_x_gpu (long long n_events,
    int nb = n_events / nt + 1;
 
    int *tmp, *i_gather_d;
-   tmp = (int*)malloc(5 * n_channels * sizeof(int));
+   tmp = (int*)malloc(N_EXT_TOT * n_channels * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < 5; i++) {
-         tmp[5 * c + i] = i_gather[c][i];
+      for (int i = 0; i < N_EXT_TOT; i++) {
+         tmp[N_EXT_TOT * c + i] = i_gather[c][i];
       }
    }
-   cudaMalloc((void**)&i_gather_d, n_channels * 5 * sizeof(int));
+   cudaMalloc((void**)&i_gather_d, n_channels * N_EXT_TOT * sizeof(int));
    // Why does this not work? The array is probably not contiguous
-   //cudaMemcpy (i_scatter_d, &i_scatter[0][0], n_channels * 3 * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy (i_gather_d, tmp, n_channels * 5 * sizeof(int), cudaMemcpyHostToDevice);
+   //cudaMemcpy (i_scatter_d, &i_scatter[0][0], n_channels * N_EXT_TOT * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy (i_gather_d, tmp, n_channels * N_EXT_TOT * sizeof(int), cudaMemcpyHostToDevice);
 
    free(tmp);
    double *flv_masses_d;
-   cudaMalloc((void**)&flv_masses_d, (2 + 3)*sizeof(double));
-   cudaMemcpy (flv_masses_d, flv_masses, (2 + 3) * sizeof(double), cudaMemcpyHostToDevice);
-   _init_msq<<<nb,nt>>>(n_events, 2, 3, n_channels, channels_d, i_gather_d, flv_masses_d, msq_d);
+   cudaMalloc((void**)&flv_masses_d, N_EXT_TOT * sizeof(double));
+   cudaMemcpy (flv_masses_d, flv_masses, N_EXT_TOT * sizeof(double), cudaMemcpyHostToDevice);
+   _init_msq<<<nb,nt>>>(n_events, n_channels, channels_d, i_gather_d, flv_masses_d, msq_d);
    cudaDeviceSynchronize();
 
    double sqrts = 1000;
@@ -662,17 +674,16 @@ void gen_phs_from_x_gpu (long long n_events,
    //printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    START_TIMER(TIME_MEMCPY_OUT);
-   int n_out = N_BRANCHES - N_BRANCHES_INTERNAL;
    // This can also be done on the device, primarily to avoid large temporary arrays.
    double *copy = (double*)malloc(4 * N_BRANCHES * n_events * sizeof(double));
    cudaMemcpy (copy, prt_d, 4 * N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (long long i = 0; i < n_events; i++) {
       int c = channels[i];
-      for (int j = 0; j < n_out; j++) {
-         p_h[4*n_out*i + 4*j + 0] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 0];
-         p_h[4*n_out*i + 4*j + 1] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 1];
-         p_h[4*n_out*i + 4*j + 2] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 2];
-         p_h[4*n_out*i + 4*j + 3] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 3];
+      for (int j = 0; j < N_EXT_OUT; j++) {
+         p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 0];
+         p_h[4*N_EXT_OUT*i + 4*j + 1] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 1];
+         p_h[4*N_EXT_OUT*i + 4*j + 2] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 2];
+         p_h[4*N_EXT_OUT*i + 4*j + 3] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 3];
       }
    }
 

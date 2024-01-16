@@ -34,6 +34,10 @@ typedef struct {
    int ok;
 } phs_val_t;
 
+extern int N_EXT_IN;
+extern int N_EXT_OUT;
+extern int N_EXT_TOT;
+
 extern int N_PRT;
 extern int N_PART;
 extern int N_PRT_OUT;
@@ -67,7 +71,7 @@ void gen_phs_from_x_gpu (long long n_events,
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
-void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_out, int n_x, double *x, int *channels,
+void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_x, double *x, int *channels,
                                         long long *n_ok, double *p_gpu, bool *oks_gpu);
 
 

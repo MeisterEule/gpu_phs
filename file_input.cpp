@@ -118,7 +118,7 @@ void read_reference_header (const char *ref_file, int *header_data, int *filepos
    }
 }
 
-void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_prt_out, int *filepos) {
+void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_prt_out, int n_external, int *filepos) {
    std::ifstream reader (ref_file);
    std::string line;
    std::string dummy;
@@ -172,14 +172,14 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
    getline (reader, line);
    std::stringstream ss(line);
    ss >> dummy;
-   for (int i = 0; i < 5; i++) {
+   for (int i = 0; i < n_external; i++) {
       ss >> flv_masses[i];
    }
    getline (reader, line);
    ss.clear();
    ss.str(line);
    ss >> dummy;
-   for (int i = 0; i < 5; i++) {
+   for (int i = 0; i < n_external; i++) {
       ss >> flv_widths[i];
    }
    *filepos = reader.tellg();
