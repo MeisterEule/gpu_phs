@@ -269,7 +269,8 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
          } 
       }
 
-      fprintf (logfl[LOG_INPUT], "i_scatter%d: ", c);
+   for (int c = 0; c < n_channels; c++) {
+      fprintf (logfl[LOG_INPUT], "i_scatter[%d]: ", c);
       for (int i = 0; i < n_out; i++) {
          fprintf (logfl[LOG_INPUT], "%d ", i_scatter[c][i]);
       } 
@@ -393,19 +394,22 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
   }
 }
 
-__global__ void _init_msq (long long N, int n_in, int n_out, int n_channels, int *channels, int *i_scatter, double *flv_masses, double *msq) {
+__global__ void _init_msq (long long N, int n_in, int n_out, int n_channels, int *channels,
+                           int *i_gather, double *flv_masses, double *msq) {
   long long tid = threadIdx.x + blockDim.x * blockIdx.x;
   if (tid >= N) return;
   int channel = channels[tid];
-  for (int i = 0; i < n_out; i++) {
-     int i_ext = 0;
-     int xx = i_scatter[3 * channel + i];
-     while (xx > 1) {
-        xx = xx / 2;
-        i_ext++;
+  for (int i = 0; i < DN_BRANCHES; i++) {
+     int x = i_gather[5 * channel + i] + 1;
+     if ((x & (x - 1)) == 0) { // Power of 2
+        int ld = 0;
+        while (x > 1) {
+           x = x / 2;
+           ld++;
+        }
+        double m = flv_masses[n_in + ld];
+        msq[DN_BRANCHES * tid + i] = m * m;
      }
-     double m = flv_masses[n_in + i_ext];
-     msq[DN_BRANCHES * tid + i_scatter[3 * channel + i]] = m * m;
   }
 }
 
@@ -607,22 +611,23 @@ void gen_phs_from_x_gpu (long long n_events,
    int nt = input_control.msq_threads;
    int nb = n_events / nt + 1;
 
-   int *tmp, *i_scatter_d;
-   tmp = (int*)malloc(3 * n_channels * sizeof(int));
+   int *tmp, *i_gather_d;
+   tmp = (int*)malloc(5 * n_channels * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < 3; i++) {
-         tmp[3 * c + i] = i_scatter[c][i];
+      for (int i = 0; i < 5; i++) {
+         tmp[5 * c + i] = i_gather[c][i];
       }
    }
-   cudaMalloc((void**)&i_scatter_d, n_channels * 3 * sizeof(int));
+   cudaMalloc((void**)&i_gather_d, n_channels * 5 * sizeof(int));
    // Why does this not work? The array is probably not contiguous
    //cudaMemcpy (i_scatter_d, &i_scatter[0][0], n_channels * 3 * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy (i_scatter_d, tmp, n_channels * 3 * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy (i_gather_d, tmp, n_channels * 5 * sizeof(int), cudaMemcpyHostToDevice);
+
    free(tmp);
    double *flv_masses_d;
    cudaMalloc((void**)&flv_masses_d, (2 + 3)*sizeof(double));
    cudaMemcpy (flv_masses_d, flv_masses, (2 + 3) * sizeof(double), cudaMemcpyHostToDevice);
-   _init_msq<<<nb,nt>>>(n_events, 2, 3, n_channels, channels_d, i_scatter_d, flv_masses_d, msq_d);
+   _init_msq<<<nb,nt>>>(n_events, 2, 3, n_channels, channels_d, i_gather_d, flv_masses_d, msq_d);
    cudaDeviceSynchronize();
 
    double sqrts = 1000;
