@@ -59,7 +59,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double *volumes = (double*)malloc(n_events * sizeof(double)); 
    bool *oks = (bool*)malloc(N_PRT * n_events * sizeof(bool));
 
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
+   init_mapping_constants_cpu (n_channels, sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts);
    double t1 = mysecond();
    gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors, volumes, oks, p);
@@ -118,7 +118,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    long long n_trial_events_tot = n_trial_events * n_channels;
 
    double sqrts = 1000;
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
+   init_mapping_constants_cpu (n_channels, sqrts);
 
    double *x = (double*)malloc(n_x * n_events * sizeof(double));
 

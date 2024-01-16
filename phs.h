@@ -63,7 +63,7 @@ extern double *flv_widths;
 
 int search_in_igather (int c, int x);
 
-void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max);
+void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 

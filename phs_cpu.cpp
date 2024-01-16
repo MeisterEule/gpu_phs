@@ -195,9 +195,10 @@ void set_angles_cpu (int channel, int branch_idx,
 }
 
 
-void init_mapping_constants_cpu (int n_channels, double s, double msq_min, double msq_max) {
+void init_mapping_constants_cpu (int n_channels, double sqrts) {
    double msq0;
    for (int c = 0; c < n_channels; c++) {
+      double m_tot = mappings_host[c].mass_sum[0];
       for (int i = 0; i < N_PRT_OUT; i++) {
          int map_id = mappings_host[c].map_id[i];
          double *a1 = mappings_host[c].a[i].a;
@@ -208,6 +209,11 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
          double *b3 = mappings_host[c].b[i].a + 2;
          double m = mappings_host[c].masses[i];
          double w = mappings_host[c].widths[i];
+         double m_min = mappings_host[c].mass_sum[i];
+         double m_max = sqrts - m_tot + m_min;
+         double msq_min = m_min * m_min;
+         double msq_max = m_max * m_max;
+         double s = sqrts * sqrts;
          switch (map_id) {
             case MAP_NO:
                *a1 = 0;
@@ -270,6 +276,14 @@ void init_mapping_constants_cpu (int n_channels, double s, double msq_min, doubl
    } 
 }
 
+void init_msq_cpu (double *msq) {
+   int p = 1;
+   for (int i = 0; i < N_EXT_OUT; i++) {
+      msq[p-1] = flv_masses[N_EXT_IN+i];
+      p *= 2;
+   } 
+}
+
 #define BYTES_PER_GB 1073741824
 void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_x, double *x,
                                         int *channels, long long *n_oks, double *p_gpu, bool *oks_gpu) {
@@ -300,6 +314,7 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_
       ok = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
+      init_msq_cpu (msq);
       memset (p_decay, 0, N_PRT * sizeof(double));
       long long id_x = 0;
       double m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
