@@ -191,9 +191,9 @@ __global__ void _set_mappings (int c, int i) {
             break;
          case MAP_UCHANNEL:
          case MAP_TCHANNEL:
-            break;
             mappings_d[c].comp_msq[i] = mapping_msq_from_x_tuchannel;
             mappings_d[c].comp_ct[i] = mapping_ct_from_x_collinear;
+            break;
          case MAP_STEP_E:
             mappings_d[c].comp_msq[i] = mapping_msq_from_x_step_e;
             mappings_d[c].comp_ct[i] = mapping_ct_from_x_schannel;
