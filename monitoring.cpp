@@ -32,16 +32,16 @@ void final_monitoring () {
 #define EPSILON 0.0001
 
 void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
-                             int n_in, int n_out, phs_val_t *pval,
+                             phs_val_t *pval,
                              double *pgen, double *factors, double *volumes) {
    int n_events_failed = 0;
    for (int i = 0; i < n_events; i++) {
-      for (int n = 0; n < n_out; n++) {
-         double *pv = pval[i].prt[n_in+n].p;
-         double *pg = &pgen[4*n_out*i + 4*n];
+      for (int n = 0; n < N_EXT_OUT; n++) {
+         double *pv = pval[i].prt[N_EXT_IN+n].p;
+         double *pg = &pgen[4*N_EXT_OUT*i + 4*n];
          if (fabs(pv[0] - pg[0]) > EPSILON || fabs(pv[1] - pg[1]) > EPSILON 
           || fabs(pv[2] - pg[2]) > EPSILON || fabs(pv[3] - pg[3]) > EPSILON) {
-            fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", n_in + n + 1, i, channels[i]);
+            fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", N_EXT_IN + n + 1, i, channels[i]);
             fprintf (fp, "Validation: %lf %lf %lf %lf\n", pv[0], pv[1], pv[2], pv[3]);
             fprintf (fp, "Generated:  %lf %lf %lf %lf\n", pg[0], pg[1], pg[2], pg[3]);
             n_events_failed++;
@@ -62,12 +62,12 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
 }
 
 void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
-                             int *channels, int n_in, int n_out, phs_val_t *pval,
+                             int *channels, phs_val_t *pval,
                              phs_prt_t *prt, double *factors, double *volumes) {
    int n_events_failed = 0;
    for (int i = 0; i < n_events_val; i++) {
-      for (int n = 0; n < n_out; n++) {
-         double *p = pval[i].prt[n_in+n].p;
+      for (int n = 0; n < N_EXT_OUT; n++) {
+         double *p = pval[i].prt[N_EXT_IN+n].p;
          int nn = pow(2,n) - 1;
          if (fabs (p[0] - prt[N_PRT*i + nn].p[0]) > EPSILON
           || fabs (p[1] - prt[N_PRT*i + nn].p[1]) > EPSILON

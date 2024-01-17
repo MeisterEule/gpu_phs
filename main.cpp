@@ -14,9 +14,11 @@
 #include "phs.h"
 #include "file_input.h"
 
-void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, 
-                                int n_in, int n_out, int filepos_start_mom) {
-   long long n_events = count_nevents_in_reference_file (ref_file, n_in + n_out, filepos_start_mom);
+double *flv_masses;
+double *flv_widths;
+
+void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, int filepos_start_mom) {
+   long long n_events = count_nevents_in_reference_file (ref_file, N_EXT_TOT, filepos_start_mom);
 
    fprintf (logfl[LOG_INPUT], "n_events in reference file: %lld\n", n_events);
 
@@ -25,13 +27,13 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
 
    phs_val_t *pval = (phs_val_t*)malloc(n_events * sizeof (phs_val_t));
    for (long long i = 0; i < n_events; i++) {
-      pval[i].prt = (phs_prt_t*)malloc((n_in + n_out) * sizeof(phs_prt_t));
+      pval[i].prt = (phs_prt_t*)malloc(N_EXT_TOT * sizeof(phs_prt_t));
    }
 
    int *channel_lims = (int*)malloc((n_channels + 1) * sizeof(int));
    channel_lims[0] = 0;
    channel_lims[n_channels] = n_events;
-   read_reference_momenta (ref_file, filepos_start_mom, n_in + n_out, n_x, x, channel_lims, pval);
+   read_reference_momenta (ref_file, filepos_start_mom, N_EXT_TOT, n_x, x, channel_lims, pval);
 
    int *channels = (int*)malloc(n_events * sizeof(int));
    int c = 0;
@@ -52,18 +54,17 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
    }
    fprintf (logfl[LOG_INPUT], "\n");
 
-   double *p = (double*)malloc(4 * n_out * n_events * sizeof(double));
+   double *p = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
    double *factors = (double*)malloc(n_events * sizeof(double)); 
    double *volumes = (double*)malloc(n_events * sizeof(double)); 
    bool *oks = (bool*)malloc(N_PRT * n_events * sizeof(bool));
 
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
-   init_phs_gpu(n_channels, mappings_host, sqrts * sqrts);
+   init_mapping_constants_cpu (n_channels, sqrts);
+   init_phs_gpu(n_channels, mappings_host, sqrts);
    double t1 = mysecond();
    gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors, volumes, oks, p);
    double t2 = mysecond();
 
-   printf ("GPU: %lf sec\n", t2 - t1);
    printf ("GPU: %lf sec\n", t2 - t1);
    printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
    printf ("   Memcpy Out: %lf\n", gpu_timers[TIME_MEMCPY_OUT]);
@@ -74,42 +75,22 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels,
 
 
    FILE *fp = fopen ("compare.gpu", "w+");
-   compare_phs_gpu_vs_ref (fp, n_events, channels, n_in, n_out, pval, p, factors, volumes);
+   compare_phs_gpu_vs_ref (fp, n_events, channels, pval, p, factors, volumes);
    fclose(fp);
    fp = NULL;
 
    free (p);
    free (factors);
    free (volumes);
-  
-   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * n_events * sizeof(phs_prt_t));
-   factors = (double*)malloc(n_events * sizeof(double));
-   volumes = (double*)malloc(n_events * sizeof(double));
-   oks = (bool*)malloc(n_events * sizeof(bool));
-
-   t1 = mysecond();
-   //gen_phs_from_x_cpu (sqrts, n_events, n_x, x, channels, factors, volumes, oks, prt);
-   t2 = mysecond();
-
-   fp = fopen ("compare.cpu", "w+");
-   compare_phs_cpu_vs_ref (fp, n_events, n_events,
-                           channels, n_in, n_out, pval, prt, factors, volumes);
-   fclose(fp);
-   fp = NULL;
-
-   printf ("CPU: %lf sec\n", t2 - t1);
-
-
-   free (factors);
-   free (volumes);
    free (oks);
-   free (prt);
    free (x);
    free (pval);
+   free (channel_lims);
+   free (channels);
 }
 
 void do_verify_internal (long long n_events_per_channel, int n_trials, long long n_trial_events,
-                         int n_x, int n_channels, int n_in, int n_out) {
+                         int n_x, int n_channels) {
    assert ((void("#Trial events > #Compute events!"), n_trial_events <= n_events_per_channel));
 
    double t1, t2;
@@ -117,7 +98,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    long long n_trial_events_tot = n_trial_events * n_channels;
 
    double sqrts = 1000;
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
+   init_mapping_constants_cpu (n_channels, sqrts);
 
    double *x = (double*)malloc(n_x * n_events * sizeof(double));
 
@@ -128,10 +109,9 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
       channels[i] = i / n_trial_events;
    }
 
-   init_mapping_constants_cpu (n_channels, sqrts * sqrts, 0, sqrts * sqrts);
-   init_phs_gpu(n_channels, mappings_host, sqrts * sqrts);
+   init_phs_gpu(n_channels, mappings_host, sqrts);
 
-   double *p_gpu = (double*)malloc(4 * n_out * n_events * sizeof(double));
+   double *p_gpu = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
    double *factors_gpu = (double*)malloc(n_events * sizeof(double)); 
    double *volumes_gpu = (double*)malloc(n_events * sizeof(double)); 
    bool *oks_gpu = (bool*)malloc(n_events * sizeof(bool));
@@ -191,17 +171,17 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    for (long long i = 0; i < n_events; i++) {
      if (oks_gpu[i]) n_ok++;
    }
-   printf ("Valid events: %d / %d\n", n_ok, n_events);
+   printf ("Valid events: %d / %d (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);
 
 // This implementation saves CPU RAM by discarding an event after it has been validated against
 // the correct GPU event. CPU RAM requirements increase faster than GPU requirements because
 // N_PRT grows exponentially.
 
    t1 = mysecond();
-   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_out, n_x, x, channels, &n_ok, p_gpu, oks_gpu);
+   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, channels, &n_ok, p_gpu, oks_gpu);
    t2 = mysecond();
    printf ("CPU: %lf sec\n", t2 - t1);
-   printf ("Valid events: %d / %d\n", n_ok, n_events);
+   printf ("Valid events: %d / %d (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);
 
 
    free(p_gpu);
@@ -209,6 +189,25 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    free(volumes_gpu);
    free(oks_gpu);
 }
+
+void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
+   if (has_children[channel][branch_idx]) {
+      int k1 = daughters1[channel][branch_idx];
+      int k2 = daughters2[channel][branch_idx];
+      set_mass_sum (channel, mass_sum, k1);
+      set_mass_sum (channel, mass_sum, k2);
+      mass_sum[branch_idx] = mass_sum[k1] + mass_sum[k2]; 
+   } else {
+      // Poor man's integer ld2
+      int ld2 = 0;
+      int bb = branch_idx + 1;
+      while (bb > 1) {
+         bb = bb / 2;
+         ld2++;
+      }
+      mass_sum[branch_idx] = flv_masses[ld2 + 2];
+   }
+} 
 
 int main (int argc, char *argv[]) {
    if (argc < 2) {
@@ -226,27 +225,29 @@ int main (int argc, char *argv[]) {
    int *header_data = (int*)malloc (NHEADER * sizeof(int));
    read_reference_header (input_control.ref_file, header_data, &filepos);
    int n_channels = header_data[H_NCHANNELS];
-   int n_in = header_data[H_NIN];
-   int n_out = header_data[H_NOUT];
    int n_trees = header_data[H_NTREES];
    int n_forests = header_data[H_NGROVES];
    int n_x = header_data[H_NX];
 
-   N_PRT = pow(2,n_in + n_out) - 1;
-   N_PRT_OUT = pow(2, n_out) - 1;
+   N_EXT_IN = header_data[H_NIN];
+   N_EXT_OUT = header_data[H_NOUT];
+   N_EXT_TOT = N_EXT_IN + N_EXT_OUT;
+
+   N_PRT = pow(2,N_EXT_TOT) - 1;
+   N_PRT_OUT = pow(2, N_EXT_OUT) - 1;
    PRT_STRIDE = 4 * N_PRT;
    ROOT_BRANCH = N_PRT_OUT - 1;
 
-   N_BRANCHES = 2*n_out - 1;
-   N_BRANCHES_INTERNAL = N_BRANCHES - n_out;
-   N_MSQ = n_out - 2;
-   N_LAMBDA_IN = n_out - 1;
+   N_BRANCHES = 2*N_EXT_OUT - 1;
+   N_BRANCHES_INTERNAL = N_BRANCHES - N_EXT_OUT;
+   N_MSQ = N_EXT_OUT - 2;
+   N_LAMBDA_IN = N_EXT_OUT - 1;
    N_BOOSTS = N_LAMBDA_IN + 1;
    N_LAMBDA_OUT = N_BRANCHES;
 
    fprintf (logfl[LOG_INPUT], "n_channels: %d\n", n_channels);
-   fprintf (logfl[LOG_INPUT], "n_in: %d\n", n_in);
-   fprintf (logfl[LOG_INPUT], "n_out: %d\n", n_out);
+   fprintf (logfl[LOG_INPUT], "n_in: %d\n", N_EXT_IN);
+   fprintf (logfl[LOG_INPUT], "n_out: %d\n", N_EXT_OUT);
    fprintf (logfl[LOG_INPUT], "n_channels: %d\n", n_channels);
    fprintf (logfl[LOG_INPUT], "nx: %d\n", n_x);
    fprintf (logfl[LOG_INPUT], "NPRT: %d\n", N_PRT);
@@ -256,19 +257,26 @@ int main (int argc, char *argv[]) {
    daughters2 = (int**)malloc(n_channels * sizeof(int*));
    has_children = (int**)malloc(n_channels * sizeof(int*));
    mappings_host = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
-   for (int i = 0; i < n_channels; i++) {
-      daughters1[i] = (int*)malloc(N_PRT * sizeof(int));
-      daughters2[i] = (int*)malloc(N_PRT * sizeof(int));
-      has_children[i] = (int*)malloc(N_PRT * sizeof(int));
-      mappings_host[i].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
-      mappings_host[i].comp_msq = NULL;
-      mappings_host[i].comp_ct = NULL;
-      mappings_host[i].a = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
-      mappings_host[i].b = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
-      mappings_host[i].masses = (double*)malloc(N_PRT_OUT * sizeof(double));
-      mappings_host[i].widths = (double*)malloc(N_PRT_OUT * sizeof(double));
+   flv_masses = (double*)malloc(N_EXT_TOT * sizeof(double));
+   flv_widths = (double*)malloc(N_EXT_TOT * sizeof(double));
+   for (int c = 0; c < n_channels; c++) {
+      daughters1[c] = (int*)malloc(N_PRT * sizeof(int));
+      daughters2[c] = (int*)malloc(N_PRT * sizeof(int));
+      has_children[c] = (int*)malloc(N_PRT * sizeof(int));
+      mappings_host[c].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
+      mappings_host[c].comp_msq = NULL;
+      mappings_host[c].comp_ct = NULL;
+      mappings_host[c].a = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
+      mappings_host[c].b = (map_constant_t*)malloc(N_PRT_OUT * sizeof(map_constant_t));
+      mappings_host[c].masses = (double*)malloc(N_PRT_OUT * sizeof(double));
+      mappings_host[c].widths = (double*)malloc(N_PRT_OUT * sizeof(double));
+      mappings_host[c].mass_sum = (double*)malloc(N_PRT_OUT * sizeof(double));
+      memset (mappings_host[c].mass_sum, 0, N_PRT_OUT * sizeof(double));
    }
-   read_tree_structures (input_control.ref_file, n_channels, N_PRT, N_PRT_OUT, &filepos);
+   read_tree_structures (input_control.ref_file, n_channels, N_PRT, N_PRT_OUT, N_EXT_TOT, &filepos);
+   for (int c = 0; c < n_channels; c++) {
+      set_mass_sum (c, mappings_host[c].mass_sum, ROOT_BRANCH);
+   }
 
    for (int c = 0; c < n_channels; c++) {
       fprintf (logfl[LOG_INPUT], "Channel %d: \n", c);
@@ -299,13 +307,30 @@ int main (int argc, char *argv[]) {
          fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].widths[i]);
       }
       fprintf (logfl[LOG_INPUT], "\n");
+      fprintf (logfl[LOG_INPUT], "\nmass_sum: ");
+      for (int i = 0; i < N_PRT_OUT; i++) {
+         fprintf (logfl[LOG_INPUT], "%lf ", mappings_host[c].mass_sum[i]);
+      }
+      fprintf (logfl[LOG_INPUT], "\n");
+
    }
+   fprintf (logfl[LOG_INPUT], "flv_masses: ");
+   for (int i = 0; i < N_EXT_TOT; i++) {
+      fprintf (logfl[LOG_INPUT], "%lf ", flv_masses[i]);
+   }
+   fprintf (logfl[LOG_INPUT], "\nflv_widths: ");
+   for (int i = 0; i < N_EXT_TOT; i++) {
+      fprintf (logfl[LOG_INPUT], "%lf ", flv_widths[i]);
+   }
+   fprintf (logfl[LOG_INPUT], "\n");
+   // Flush here so that, in case that the input is broken and there's an error down the line,
+   // we have the debug output.
+   fflush(logfl[LOG_INPUT]);
 
 
     
    if (input_control.run_type == RT_WHIZARD) {
-      do_verify_against_whizard (input_control.ref_file, n_x, n_channels,
-                                 n_in, n_out, filepos);
+      do_verify_against_whizard (input_control.ref_file, n_x, n_channels, filepos);
    } else {
       int n_events;
       if (input_control.run_type == RT_INTERNAL_FIXED_N) {
@@ -315,7 +340,7 @@ int main (int argc, char *argv[]) {
       }
       do_verify_internal (n_events,
                           input_control.warmup_trials, input_control.warmup_events,
-                          n_x, n_channels, n_in, n_out);
+                          n_x, n_channels);
    }
 
    final_monitoring();
