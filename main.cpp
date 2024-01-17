@@ -171,7 +171,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    for (long long i = 0; i < n_events; i++) {
      if (oks_gpu[i]) n_ok++;
    }
-   printf ("Valid events: %d / %d\n", n_ok, n_events);
+   printf ("Valid events: %d / %d (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);
 
 // This implementation saves CPU RAM by discarding an event after it has been validated against
 // the correct GPU event. CPU RAM requirements increase faster than GPU requirements because
@@ -181,7 +181,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, channels, &n_ok, p_gpu, oks_gpu);
    t2 = mysecond();
    printf ("CPU: %lf sec\n", t2 - t1);
-   printf ("Valid events: %d / %d\n", n_ok, n_events);
+   printf ("Valid events: %d / %d (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);
 
 
    free(p_gpu);
