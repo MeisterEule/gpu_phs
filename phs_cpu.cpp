@@ -279,7 +279,7 @@ void init_mapping_constants_cpu (int n_channels, double sqrts) {
 void init_msq_cpu (double *msq) {
    int p = 1;
    for (int i = 0; i < N_EXT_OUT; i++) {
-      msq[p-1] = flv_masses[N_EXT_IN+i];
+      msq[p-1] = flv_masses[N_EXT_IN+i] * flv_masses[N_EXT_IN+i];
       p *= 2;
    } 
 }
