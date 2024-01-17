@@ -66,7 +66,6 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double t2 = mysecond();
 
    printf ("GPU: %lf sec\n", t2 - t1);
-   printf ("GPU: %lf sec\n", t2 - t1);
    printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
    printf ("   Memcpy Out: %lf\n", gpu_timers[TIME_MEMCPY_OUT]);
    printf ("   Kernel Init: %lf\n", gpu_timers[TIME_KERNEL_INIT]);
@@ -83,30 +82,11 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    free (p);
    free (factors);
    free (volumes);
-  
-   phs_prt_t *prt = (phs_prt_t*)malloc(N_PRT * n_events * sizeof(phs_prt_t));
-   factors = (double*)malloc(n_events * sizeof(double));
-   volumes = (double*)malloc(n_events * sizeof(double));
-   oks = (bool*)malloc(n_events * sizeof(bool));
-
-   t1 = mysecond();
-   //gen_phs_from_x_cpu (sqrts, n_events, n_x, x, channels, factors, volumes, oks, prt);
-   t2 = mysecond();
-
-   fp = fopen ("compare.cpu", "w+");
-   compare_phs_cpu_vs_ref (fp, n_events, n_events, channels, pval, prt, factors, volumes);
-   fclose(fp);
-   fp = NULL;
-
-   printf ("CPU: %lf sec\n", t2 - t1);
-
-
-   free (factors);
-   free (volumes);
    free (oks);
-   free (prt);
    free (x);
    free (pval);
+   free (channel_lims);
+   free (channels);
 }
 
 void do_verify_internal (long long n_events_per_channel, int n_trials, long long n_trial_events,
