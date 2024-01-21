@@ -336,7 +336,7 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
              || fabs (p[1] - prt[nn].p[1]) > 0.00001  
              || fabs (p[2] - prt[nn].p[2]) > 0.00001  
              || fabs (p[3] - prt[nn].p[3]) > 0.00001) {
-               fprintf (stdout, "Error in p%d (event: %d, channel: %d):\n", n, i, c);
+               fprintf (stdout, "Error in p%d (event: %ld, channel: %d):\n", n, i, c);
                fprintf (stdout, "GPU: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
                fprintf (stdout, "CPU:  %lf %lf %lf %lf\n", prt[nn].p[0], prt[nn].p[1],
                                                        prt[nn].p[2], prt[nn].p[3]);

@@ -60,7 +60,6 @@ template <typename T> void cudaMemcpyMaskedH2D (size_t N, int *idx, T *field_d, 
 }
 
 int search_in_igather (int c, int x) {
-  int idx;
   for (int cc = 0; cc < N_BRANCHES; cc++) {
      if (i_gather[c][cc] == x) return cc;
   }
@@ -357,7 +356,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
       set_mappings(c);
    }
 
-   int _n_boosts;
    std::vector<boost_cmd_t> cmd_origin;
    std::vector<boost_cmd_t> cmd_target;
    std::list<int> parent_stack;
@@ -372,7 +370,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
       } else {
       }
 
-      fprintf (logfl[LOG_INPUT], "N_LAMBDA_IN: %d, cmd_origin.size(): %d\n", N_LAMBDA_IN, cmd_origin.size());
+      fprintf (logfl[LOG_INPUT], "N_LAMBDA_IN: %d, cmd_origin.size(): %ld\n", N_LAMBDA_IN, cmd_origin.size());
       fprintf (logfl[LOG_INPUT], "Origins[%d]\n", c);
       for (boost_cmd_t b : cmd_origin) {
         fprintf (logfl[LOG_INPUT], "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
@@ -393,7 +391,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
      int dummy = 1;
      extract_boost_targets (&cmd_target, c, ROOT_BRANCH, &parent_stack, &dummy);
     
-     fprintf (logfl[LOG_INPUT], "N_LAMBDA_OUT: %d, cmd_target.size(): %d\n", N_LAMBDA_OUT, cmd_target.size());
+     fprintf (logfl[LOG_INPUT], "N_LAMBDA_OUT: %d, cmd_target.size(): %ld\n", N_LAMBDA_OUT, cmd_target.size());
      fprintf (logfl[LOG_INPUT], "Targets[%d]\n", c);
      for (boost_cmd_t b : cmd_target) {
         fprintf (logfl[LOG_INPUT], "%d %d\n", b.b[0], b.b[1]);
