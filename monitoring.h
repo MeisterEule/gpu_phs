@@ -54,7 +54,6 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
 
 size_t required_gpu_mem (size_t n_events, int n_x);
 size_t required_cpu_mem (size_t n_events, int n_x);
-size_t
 size_t nevents_that_fit_into_gpu_mem (size_t mem, int n_x, int n_channels);
 
 #endif
