@@ -94,8 +94,8 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
    fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events_gen);
 }
 
-long long required_gpu_mem (long long n_events, int n_x) {
-   long long mem = 0;
+size_t required_gpu_mem (size_t n_events, int n_x) {
+   size_t mem = 0;
    // Random numbers and counter indices
    mem += n_x * n_events * sizeof(double);
    mem += n_events * sizeof(int);
@@ -119,16 +119,16 @@ long long required_gpu_mem (long long n_events, int n_x) {
 //                +  16 * N_BOOSTS * sizeof(double)
 //                +  sizeof(bool)) * n_events 
 //
-long long nevents_that_fit_into_gpu_mem (long long mem, int n_x, int n_channels) {
-   long long mem_per_element = n_x * sizeof(double) + 2 * sizeof(int)
+size_t nevents_that_fit_into_gpu_mem (size_t mem, int n_x, int n_channels) {
+   size_t mem_per_element = n_x * sizeof(double) + 2 * sizeof(int)
                              + 8 * N_BRANCHES * sizeof(double)
                              + 16 * N_BOOSTS * sizeof(double)
                              + sizeof(bool);
    return mem / mem_per_element / n_channels;
 }
 
-long long required_cpu_mem (long long n_events, int n_x) {
-   long long mem = 0;
+size_t required_cpu_mem (size_t n_events, int n_x) {
+   size_t mem = 0;
    // Random numbers
    mem += n_x * n_events * sizeof(double);
    // prt

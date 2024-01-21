@@ -18,7 +18,7 @@ enum {MAP_NO=0,
 
 typedef struct {
    int nx;
-   long long *id_gpu;
+   size_t *id_gpu;
    int id_cpu;
    double *x;
 } xcounter_t;
@@ -67,12 +67,12 @@ void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 
-void gen_phs_from_x_gpu (long long n_events, 
+void gen_phs_from_x_gpu (size_t n_events, 
                          int n_channels, int *channel_lims, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
-void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_x, double *x, int *channels,
-                                        long long *n_ok, double *p_gpu, bool *oks_gpu);
+void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x, int *channels,
+                                        size_t *n_ok, double *p_gpu, bool *oks_gpu);
 
 
 

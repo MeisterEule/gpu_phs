@@ -89,8 +89,8 @@ void read_input_json (const char *filename) {
 
 }
 
-long long count_nevents_in_reference_file (const char *ref_file, int n_momenta, int filepos) {
-   long long n_lines = 0;
+size_t count_nevents_in_reference_file (const char *ref_file, int n_momenta, int filepos) {
+   size_t n_lines = 0;
    std::ifstream reader (ref_file);
    reader.seekg(filepos, reader.beg);
    std::string line; 

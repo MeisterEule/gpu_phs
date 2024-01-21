@@ -52,9 +52,9 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                              int *channels, phs_val_t *pval,
                              phs_prt_t *prt, double *factors, double *volumes);
 
-long long required_gpu_mem (long long n_events, int n_x);
-long long required_cpu_mem (long long n_events, int n_x);
-
-long long nevents_that_fit_into_gpu_mem (long long mem, int n_x, int n_channels);
+size_t required_gpu_mem (size_t n_events, int n_x);
+size_t required_cpu_mem (size_t n_events, int n_x);
+size_t
+size_t nevents_that_fit_into_gpu_mem (size_t mem, int n_x, int n_channels);
 
 #endif

@@ -75,7 +75,7 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
 }
 
 void set_msq_cpu (int channel, int branch_idx, double m_tot,
-                  double *x, long long *id_x, double sqrts, double *msq,
+                  double *x, size_t *id_x, double sqrts, double *msq,
                   double *factor, double *volume, bool *ok, double *p_decay) {
    int k1 = daughters1[channel][branch_idx];
    int k2 = daughters2[channel][branch_idx];
@@ -136,7 +136,7 @@ void set_msq_cpu (int channel, int branch_idx, double m_tot,
 
 
 void set_angles_cpu (int channel, int branch_idx,
-                     double *x, long long *idx_x, double s, double *msq, double *factor,
+                     double *x, size_t *idx_x, double s, double *msq, double *factor,
                      double *p_decay, phs_prt_t *prt, double L0[4][4]) {
    double p = p_decay[branch_idx];
    double m  = sqrt(msq[branch_idx]);
@@ -285,8 +285,8 @@ void init_msq_cpu (double *msq) {
 }
 
 #define BYTES_PER_GB 1073741824
-void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_x, double *x,
-                                        int *channels, long long *n_oks, double *p_gpu, bool *oks_gpu) {
+void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x,
+                                        int *channels, size_t *n_oks, double *p_gpu, bool *oks_gpu) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
 
@@ -310,13 +310,13 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, long long n_events, int n_
    L0[3][3] = 1;
 
    *n_oks = 0;
-   for (long long i = 0; i < n_events; i++) {
+   for (size_t i = 0; i < n_events; i++) {
       ok = true;
       int c = channels[i];
       memset (msq, 0, N_PRT * sizeof(double));
       init_msq_cpu (msq);
       memset (p_decay, 0, N_PRT * sizeof(double));
-      long long id_x = 0;
+      size_t id_x = 0;
       double m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
       set_msq_cpu (c, ROOT_BRANCH, m_tot, x + n_x * i, &id_x, sqrts, msq, &factor, &volume, &ok, p_decay); 
       if (ok) {

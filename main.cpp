@@ -18,7 +18,7 @@ double *flv_masses;
 double *flv_widths;
 
 void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, int filepos_start_mom) {
-   long long n_events = count_nevents_in_reference_file (ref_file, N_EXT_TOT, filepos_start_mom);
+   size_t n_events = count_nevents_in_reference_file (ref_file, N_EXT_TOT, filepos_start_mom);
 
    fprintf (logfl[LOG_INPUT], "n_events in reference file: %lld\n", n_events);
 
@@ -26,7 +26,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double *x = (double*)malloc(n_x * n_events * sizeof(double));
 
    phs_val_t *pval = (phs_val_t*)malloc(n_events * sizeof (phs_val_t));
-   for (long long i = 0; i < n_events; i++) {
+   for (size_t i = 0; i < n_events; i++) {
       pval[i].prt = (phs_prt_t*)malloc(N_EXT_TOT * sizeof(phs_prt_t));
    }
 
@@ -37,13 +37,13 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
 
    int *channels = (int*)malloc(n_events * sizeof(int));
    int c = 0;
-   for (long long i = 0; i < n_events; i++) {
+   for (size_t i = 0; i < n_events; i++) {
       if (i == channel_lims[c+1]) c++;
       channels[i] = c;
    }
 
-   long long mem_gpu = required_gpu_mem (n_events, n_x);
-   long long mem_cpu = required_cpu_mem (n_events, n_x);
+   size_t mem_gpu = required_gpu_mem (n_events, n_x);
+   size_t mem_cpu = required_cpu_mem (n_events, n_x);
    printf ("Perform Whizard crosscheck with %lld events (%lld per channel):\n", n_events, n_events / n_channels);
    printf ("Required GPU memory: %lf GiB\n", (double)mem_gpu / BYTES_PER_GB);
    printf ("Required CPU memory: %lf GiB\n", (double)mem_cpu / BYTES_PER_GB);
@@ -89,13 +89,13 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    free (channels);
 }
 
-void do_verify_internal (long long n_events_per_channel, int n_trials, long long n_trial_events,
+void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_trial_events,
                          int n_x, int n_channels) {
    assert ((void("#Trial events > #Compute events!"), n_trial_events <= n_events_per_channel));
 
    double t1, t2;
-   long long n_events  = n_events_per_channel * n_channels;
-   long long n_trial_events_tot = n_trial_events * n_channels;
+   size_t n_events  = n_events_per_channel * n_channels;
+   size_t n_trial_events_tot = n_trial_events * n_channels;
 
    double sqrts = 1000;
    init_mapping_constants_cpu (n_channels, sqrts);
@@ -105,7 +105,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    init_rng (n_channels, n_x);
 
    int *channels = (int*)malloc(n_trial_events_tot * sizeof(int));
-   for (long long i = 0; i < n_trial_events_tot; i++) {
+   for (size_t i = 0; i < n_trial_events_tot; i++) {
       channels[i] = i / n_trial_events;
    }
 
@@ -122,7 +122,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    // trial events is smaller or equal than the number of timed events, we can use
    // all the fields created for the timed run.
 
-   long long n_ok;
+   size_t n_ok;
    printf ("Precondition grid with %d trials and %lld events / trial.\n", n_trials, n_trial_events);
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_trial_events, n_x, x);
@@ -130,7 +130,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
                           n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
       // Count how many events return "ok". 
       n_ok = 0;
-      for (long long i = 0; i < n_trial_events_tot; i++) {
+      for (size_t i = 0; i < n_trial_events_tot; i++) {
          if (oks_gpu[i]) n_ok++;
       }
       printf ("Trial %d: %d / %d (%.2f%%)\n", i, n_ok, n_trial_events_tot, (float)n_ok / n_trial_events_tot * 100);
@@ -141,7 +141,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    // The channels need to be re-filled w.r.t. a larger number of events.
    free(channels);
    channels = (int*)malloc(n_events * sizeof(int));
-   for (long long i = 0; i < n_events; i++) {
+   for (size_t i = 0; i < n_events; i++) {
      channels[i] = i / n_events_per_channel;
    }
 
@@ -152,8 +152,8 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
 
    // Now do the real time measurement with the adapted grids
    printf ("Perform optimized GPU run with %lld events (%lld per channel):\n", n_events, n_events_per_channel);
-   printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem ((long long)n_events, n_x) / BYTES_PER_GB);
-   printf ("Required CPU memory: %lf GiB\n", (double)required_cpu_mem ((long long)n_events, n_x) / BYTES_PER_GB);
+   printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem ((size_t)n_events, n_x) / BYTES_PER_GB);
+   printf ("Required CPU memory: %lf GiB\n", (double)required_cpu_mem ((size_t)n_events, n_x) / BYTES_PER_GB);
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
    t1 = mysecond();
@@ -168,7 +168,7 @@ void do_verify_internal (long long n_events_per_channel, int n_trials, long long
    printf ("   Kernel Apply Boosts: %lf\n", gpu_timers[TIME_KERNEL_AB]);
 
    n_ok = 0;
-   for (long long i = 0; i < n_events; i++) {
+   for (size_t i = 0; i < n_events; i++) {
      if (oks_gpu[i]) n_ok++;
    }
    printf ("Valid events: %d / %d (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);
