@@ -622,16 +622,16 @@ void gen_phs_from_x_gpu (size_t n_events,
    int nb = n_events / nt + 1;
 
    int *tmp, *i_gather_d;
-   tmp = (int*)malloc(N_EXT_TOT * n_channels * sizeof(int));
+   tmp = (int*)malloc(N_BRANCHES * n_channels * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
-      for (int i = 0; i < N_EXT_TOT; i++) {
-         tmp[N_EXT_TOT * c + i] = i_gather[c][i];
+      for (int i = 0; i < N_BRANCHES; i++) {
+         tmp[N_BRANCHES * c + i] = i_gather[c][i];
       }
    }
-   cudaMalloc((void**)&i_gather_d, n_channels * N_EXT_TOT * sizeof(int));
+   cudaMalloc((void**)&i_gather_d, n_channels * N_BRANCHES * sizeof(int));
    // Why does this not work? The array is probably not contiguous
    //cudaMemcpy (i_scatter_d, &i_scatter[0][0], n_channels * N_EXT_TOT * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy (i_gather_d, tmp, n_channels * N_EXT_TOT * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy (i_gather_d, tmp, n_channels * N_BRANCHES * sizeof(int), cudaMemcpyHostToDevice);
 
    free(tmp);
    double *flv_masses_d;
