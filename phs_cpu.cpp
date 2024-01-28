@@ -198,7 +198,7 @@ void set_angles_cpu (int channel, int branch_idx,
 void init_mapping_constants_cpu (int n_channels, double sqrts) {
    double msq0;
    for (int c = 0; c < n_channels; c++) {
-      double m_tot = mappings_host[c].mass_sum[0];
+      double m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
       for (int i = 0; i < N_PRT_OUT; i++) {
          int map_id = mappings_host[c].map_id[i];
          double *a1 = mappings_host[c].a[i].a;
