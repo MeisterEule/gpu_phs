@@ -410,7 +410,8 @@ __global__ void _init_msq (size_t N, int n_channels, int *channels,
   if (tid >= N) return;
   int channel = channels[tid];
   for (int i = 0; i < DN_BRANCHES; i++) {
-     int x = i_gather[DN_EXT_TOT * channel + i] + 1;
+     int x = i_gather[DN_BRANCHES * channel + i] + 1;
+     if (tid == 14) printf ("x: %d\n", x);
      if ((x & (x - 1)) == 0) { // Power of 2
         int ld = 0;
         while (x > 1) {

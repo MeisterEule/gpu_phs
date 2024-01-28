@@ -90,7 +90,6 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double sqrt
    for (int c = 0; c < n_channels; c++) {
       double m_tot = mappings_d[c].mass_sum[0];
       for (int i = 0; i < n_part; i++) {
-         int map_id = mappings_d[c].map_id[i];
          double *a1 = mappings_d[c].a[i].a;
          double *a2 = mappings_d[c].a[i].a + 1;
          double *a3 = mappings_d[c].a[i].a + 2;
@@ -105,6 +104,14 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double sqrt
          double msq_min = m_min * m_min;
          double msq_max = m_max * m_max;
          double s = sqrts * sqrts;
+         if (mappings_d[c].map_id[i] == MAP_SCHANNEL || 
+             mappings_d[c].map_id[i] == MAP_STEP_E ||
+             mappings_d[c].map_id[i] == MAP_STEP_H) {
+            if (msq0 < msq_min || msq0 > msq_max) {
+               mappings_d[c].map_id[i] = MAP_NO;
+            }
+         }
+         int map_id = mappings_d[c].map_id[i];
          // Compute a for msq
          switch (map_id) {
             case MAP_NO:
@@ -113,7 +120,6 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double sqrt
                *a3 = *a2 / s;
                break;
             case MAP_SCHANNEL:
-               msq0 = m * m;
                *a1 = atan ((msq_min - msq0) / (m * w));
                *a2 = atan ((msq_max - msq0) / (m * w));
                *a3 = (*a2 - (*a1)) * (m * w) / s;
@@ -132,7 +138,6 @@ __global__ void _init_mapping_constants (int n_channels, int n_part, double sqrt
                break;
             case MAP_TCHANNEL:
             case MAP_UCHANNEL:
-               msq0 = m * m;
                *a1 = msq0;
                *a2 = 2 * log ((msq_max - msq_min) / (2 * msq0) + 1);
                *a3 = *a2 / s;
