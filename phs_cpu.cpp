@@ -10,22 +10,47 @@
 
 mapping_t *mappings_host = NULL;
 
-void mapping_msq_from_x_cpu (int type, double x, double s, double msq_min, double msq_max, double *a, double *msq, double *factor) {
+void mapping_msq_from_x_cpu (int type, double x, double s, double m, double w, double msq_min, double msq_max, double *a, double *msq, double *factor) {
    double msq1;
    double tmp, z;
    switch (type) {
       case MAP_NO:
-      case MAP_SCHANNEL:
-      case MAP_INFRARED:
-      case MAP_RADIATION:
-      case MAP_STEP_H:
          *msq = (1 - x) * msq_min + x * msq_max;
          *factor = (msq_max - msq_min) / s;
          break;
+      case MAP_SCHANNEL:
+        z = (1 - x) * a[0] + x * a[1];
+        if (-PI/2 < z && z < PI/2) {
+           tmp = tan(z);
+           *msq = m * (m + w * tmp);
+           *factor = a[2] * (1 + tmp * tmp);
+        } else {
+           *msq = 0;
+           *factor = 0;
+        }
+        break;
       case MAP_COLLINEAR:
+      case MAP_INFRARED:
+      case MAP_RADIATION:
          msq1 = a[0] * exp (x * a[1]);
          *msq = msq1 - a[0] + msq_min;
          *factor = a[2] * msq1;
+         break;
+      case MAP_TCHANNEL:
+      case MAP_UCHANNEL:
+         if (x < 0.5) {
+            msq1 = a[0] * exp (x * a[1]);
+            *msq = msq1 - a[0] + msq_min;
+         } else {
+            msq1 = a[0] * exp((1-x) * a[1]);
+            *msq = -(msq1 - a[0]) + msq_max;
+         }
+         *factor = a[2] * msq1;
+         break;
+      case MAP_STEP_H:
+         z = a[1] / (a[0] - x) - a[1] / a[0] + a[2] * x;
+         *msq = z * msq_max + (1 - z) * msq_min;
+         *factor = (a[1] / ((a[0] - x) * (a[0] - x)) + a[2]) * (msq_max - msq_min) / s;
          break;
       case MAP_STEP_E:
          tmp = exp (-x * a[0] / a[2]) * (1 + a[1]);
@@ -105,7 +130,9 @@ void set_msq_cpu (int channel, int branch_idx, double m_tot,
       double this_msq = 0;
       double f;
       double *a = mappings_host[channel].a[branch_idx].a;
-      mapping_msq_from_x_cpu (mappings_host[channel].map_id[branch_idx], x[*id_x], sqrts * sqrts,
+      double m = mappings_host[channel].masses[branch_idx]; 
+      double w = mappings_host[channel].widths[branch_idx];
+      mapping_msq_from_x_cpu (mappings_host[channel].map_id[branch_idx], x[*id_x], sqrts * sqrts, m, w,
                               m_min*m_min, m_max*m_max, a, &msq[branch_idx], factor);
       (*id_x)++;
       if (this_msq >= 0) {
