@@ -286,7 +286,8 @@ void init_msq_cpu (double *msq) {
 
 #define BYTES_PER_GB 1073741824
 void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x,
-                                        int *channels, size_t *n_oks, double *p_gpu, bool *oks_gpu) {
+                                        int *channels, size_t *n_oks, double *p_gpu, bool *oks_gpu,
+                                        FILE *fp) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
 
@@ -336,9 +337,9 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
              || fabs (p[1] - prt[nn].p[1]) > 0.00001  
              || fabs (p[2] - prt[nn].p[2]) > 0.00001  
              || fabs (p[3] - prt[nn].p[3]) > 0.00001) {
-               fprintf (stdout, "Error in p%d (event: %ld, channel: %d):\n", n, i, c);
-               fprintf (stdout, "GPU: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
-               fprintf (stdout, "CPU:  %lf %lf %lf %lf\n", prt[nn].p[0], prt[nn].p[1],
+               fprintf (fp, "Error in p%d (event: %ld, channel: %d):\n", n, i, c);
+               fprintf (fp, "GPU: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
+               fprintf (fp, "CPU:  %lf %lf %lf %lf\n", prt[nn].p[0], prt[nn].p[1],
                                                        prt[nn].p[2], prt[nn].p[3]);
 
             }
