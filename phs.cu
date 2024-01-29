@@ -432,6 +432,7 @@ __global__ void _apply_msq (size_t N, double sqrts, int *channels, int *cmd, int
                             xcounter_t *xc, double *p_decay,
                             double *msq, double *factors, double *volumes, bool *oks) {
   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
   int channel = channels[tid];
   double m_tot = mappings_d[channel].mass_sum[0];
   for (int c = 0; c < n_cmd - 1; c++) {
