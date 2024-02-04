@@ -77,6 +77,8 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
          *factor = 1; 
          break;
       case MAP_COLLINEAR:
+      case MAP_TCHANNEL:
+      case MAP_UCHANNEL:
          b1 = (double)(MAP_INV_MASS * MAP_INV_MASS) / s;
          b2 = log((b1 + 1) / b1);
          b3 = 0;
