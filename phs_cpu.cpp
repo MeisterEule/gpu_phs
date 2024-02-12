@@ -61,8 +61,7 @@ void mapping_msq_from_x_cpu (int type, double x, double s, double m, double w, d
    }
 }
 
-void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st, double *factor) {
-   double b1, b2, b3;
+void mapping_ct_from_x_cpu (int type, double x, double s, double *b, double *ct, double *st, double *factor) {
    double tmp;
    switch (type) {
       case MAP_NO:
@@ -79,19 +78,16 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *ct, double *st
       case MAP_COLLINEAR:
       case MAP_TCHANNEL:
       case MAP_UCHANNEL:
-         b1 = (double)(MAP_INV_MASS * MAP_INV_MASS) / s;
-         b2 = log((b1 + 1) / b1);
-         b3 = 0;
          if (x < 0.5) {
-            tmp = b1 * exp (2 * x * b2);
-            *ct = tmp - b1 - 1;
+            tmp = b[0] * exp (2 * x * b[1]);
+            *ct = tmp - b[0] - 1;
          } else {
-            tmp = b1 * exp (2 * (1 - x) * b2);
-            *ct = -(tmp - b1) + 1;
+            tmp = b[0] * exp (2 * (1 - x) * b[1]);
+            *ct = -(tmp - b[0]) + 1;
          }
          if (*ct >= -1 && *ct <= 1) {
             *st = sqrt(1 - *ct * *ct);
-            *factor = tmp * b2;
+            *factor = tmp * b[1];
          } else {
             *ct = 1;
             *st = 0;
@@ -186,8 +182,10 @@ void set_angles_cpu (int channel, int branch_idx,
 
       double xx = x[*idx_x];
       (*idx_x)++;
+      
+      double *b = mappings_host[channel].b[branch_idx].a;
       double ct, st, f;
-      mapping_ct_from_x_cpu (mappings_host[channel].map_id[branch_idx], xx, s, &ct, &st, &f);
+      mapping_ct_from_x_cpu (mappings_host[channel].map_id[branch_idx], xx, s, b, &ct, &st, &f);
       *factor *= f; 
 
       double L1[4][4];

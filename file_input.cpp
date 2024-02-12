@@ -245,7 +245,6 @@ void read_reference_momenta (const char *ref_file, int filepos,
          ss >> p[i_event].ok;
       }
       counter++;
-      //printf ("DONE\n");
    }
 }
 
