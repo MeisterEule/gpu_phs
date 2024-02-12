@@ -36,26 +36,32 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
                              double *pgen, double *factors, double *volumes) {
    int n_events_failed = 0;
    for (int i = 0; i < n_events; i++) {
-      for (int n = 0; n < N_EXT_OUT; n++) {
-         double *pv = pval[i].prt[N_EXT_IN+n].p;
-         double *pg = &pgen[4*N_EXT_OUT*i + 4*n];
-         if (fabs(pv[0] - pg[0]) > EPSILON || fabs(pv[1] - pg[1]) > EPSILON 
-          || fabs(pv[2] - pg[2]) > EPSILON || fabs(pv[3] - pg[3]) > EPSILON) {
-            fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", N_EXT_IN + n + 1, i, channels[i]);
-            fprintf (fp, "Validation: %lf %lf %lf %lf\n", pv[0], pv[1], pv[2], pv[3]);
-            fprintf (fp, "Generated:  %lf %lf %lf %lf\n", pg[0], pg[1], pg[2], pg[3]);
+      int c = channels[i];
+      if (contains_friends[c] == 0) {
+         for (int n = 0; n < N_EXT_OUT; n++) {
+            double *pv = pval[i].prt[N_EXT_IN+n].p;
+            double *pg = &pgen[4*N_EXT_OUT*i + 4*n];
+            if (fabs(pv[0] - pg[0]) > EPSILON || fabs(pv[1] - pg[1]) > EPSILON 
+             || fabs(pv[2] - pg[2]) > EPSILON || fabs(pv[3] - pg[3]) > EPSILON) {
+               fprintf (fp, "Error in p%d: (event: %d, channel: %d):\n", N_EXT_IN + n + 1, i, c);
+               fprintf (fp, "Validation: %lf %lf %lf %lf\n", pv[0], pv[1], pv[2], pv[3]);
+               fprintf (fp, "Generated:  %lf %lf %lf %lf\n", pg[0], pg[1], pg[2], pg[3]);
+               n_events_failed++;
+            }
+         }
+  
+         if (fabs (pval[i].f - factors[i]) > EPSILON) {
+            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
             n_events_failed++;
          }
-      }
-  
-      if (fabs (pval[i].f - factors[i]) > EPSILON) {
-         fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
-         n_events_failed++;
-      }
 
-      if (fabs (pval[i].v - volumes[i]) > EPSILON) {
-         fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
-         n_events_failed++;
+         if (fabs (pval[i].v - volumes[i]) > EPSILON) {
+            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
+            n_events_failed++;
+         }
+      } else if (contains_friends[c] == 1) {
+          fprintf (fp, "Channel %d contains friends. Skip\n", c);
+          contains_friends[c] = -1;
       }
    }
    fprintf (fp, "Failed events with EPSILON = %lf: %d / %d\n", EPSILON, n_events_failed, n_events);

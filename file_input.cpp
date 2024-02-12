@@ -126,7 +126,7 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
 
    int counter = 0;
    int tmp;
-   const int n_line_elements = 6; // 2 x daughters + children + mappings + map_masses + map_widths
+   const int n_line_elements = 7; // 2 x daughters + children + friends + mappings + map_masses + map_widths
    while (counter < n_line_elements * n_trees) {
       getline (reader, line);
       std::stringstream ss(line);
@@ -148,12 +148,14 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
             ss >> has_children[cd][i];
          }
       } else if (cm == 3) {
+         ss >> contains_friends[cd];
+      } else if (cm == 4) {
          int n = 0;
          while (n < n_prt_out) {
             ss >> mappings_host[cd].map_id[n];
             n++;
          }
-      } else if (cm == 4) {
+      } else if (cm == 5) {
          int n = 0;
          while (n < n_prt_out) {
             ss >> mappings_host[cd].masses[n];
@@ -167,7 +169,7 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
          }
       }
      counter++;
-   } 
+   }
    // flv_masses + flv_widths
    getline (reader, line);
    std::stringstream ss(line);

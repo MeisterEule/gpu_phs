@@ -53,6 +53,7 @@ extern int N_LAMBDA_OUT;
 extern int **daughters1;
 extern int **daughters2;
 extern int **has_children;
+extern int *contains_friends;
 
 extern int **i_scatter;
 extern int **i_gather;

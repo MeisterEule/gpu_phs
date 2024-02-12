@@ -41,6 +41,7 @@ __device__ int DN_LAMBDA_OUT;
 int **daughters1 = NULL;
 int **daughters2 = NULL;
 int **has_children = NULL;
+int *contains_friends = NULL;
 
 int **i_scatter = NULL;
 int **i_gather = NULL;
