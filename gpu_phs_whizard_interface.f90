@@ -6,18 +6,20 @@ module gpu_phs_whizard_interface
          import c_int
          integer(kind=c_int), intent(in) :: n_channels, n_trees, n_groves, n_x, n_in, n_out
       end subroutine whizard_set_particle_structure
-      !!!subroutine whizard_init_phs (n_channels, channels, 
-      !!!subroutine whizard_gen_phs_all (sqrts, n_channels, channels, &
-      !!!           x, factors, volumes, oks, momenta) bind (C, name='c_whizard_gen_phs_all')
-      !!!   import c_double, c_int, c_bool
-      !!!   integer(kind=c_int), intent(in) :: n_channels
-      !!!   integer(kind=c_int), dimension(*), intent(in) :: channels
-      !!!   real(kind=c_double), intent(in) :: sqrts
-      !!!   real(kind=c_double), dimension(*), intent(in) :: x
-      !!!   real(kind=c_double), dimension(*), intent(out) :: factors
-      !!!   real(kind=c_double), dimension(*), intent(out) :: volumes
-      !!!   integer(kind=c_bool), dimension(*), intent(out) :: oks 
-      !!!   real(kind=c_double), dimension(*), intent(out) :: momenta
-      !!!end subroutine whizard_gen_phs_all
+
+      subroutine whizard_init_mappings (n_channels) &
+         bind (C, name='c_whizard_init_mappings') 
+         import c_int
+         integer(kind=c_int), intent(in) :: n_channels
+      end subroutine whizard_init_mappings
+
+      subroutine whizard_fill_mapping (channel, map_ids, masses, widths) &
+         bind (C, name='c_whizard_fill_mapping')
+         import c_int, c_double
+         integer(kind=c_int), intent(in) :: channel
+         integer(kind=c_int), dimension(*), intent(in) :: map_ids
+         real(kind=c_double), dimension(*), intent(in) :: masses
+         real(kind=c_double), dimension(*), intent(in) :: widths
+      end subroutine whizard_fill_mapping
    end interface
 end module gpu_phs_whizard_interface

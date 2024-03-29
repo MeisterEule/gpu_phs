@@ -23,7 +23,7 @@ extern "C" void c_whizard_set_particle_structure (int n_channels, int n_trees, i
    N_LAMBDA_OUT = N_BRANCHES;
 }
 
-extern "C" void whizard_init_mappings (int n_channels) {
+extern "C" void c_whizard_init_mappings (int n_channels) {
    mappings_host = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    for (int c = 0; c < n_channels; c++) {
       mappings_host[c].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
@@ -38,7 +38,7 @@ extern "C" void whizard_init_mappings (int n_channels) {
    }
 }
 
-extern "C" void whizard_fill_mapping (int channel, int *map_ids, double *masses, double *widths) {
+extern "C" void c_whizard_fill_mapping (int channel, int *map_ids, double *masses, double *widths) {
    for (int i = 0; i < N_PRT_OUT; i++) {
       mappings_host[channel].map_id[i] = map_ids[i]; 
       mappings_host[channel].masses[i] = masses[i];
