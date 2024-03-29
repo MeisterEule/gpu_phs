@@ -12,6 +12,7 @@
 #include "rng.h"
 #include "monitoring.h"
 #include "phs.h"
+#include "global_phs.h"
 #include "file_input.h"
 
 double *flv_masses;

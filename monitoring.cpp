@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <cmath>
 
+#include "global_phs.h"
 #include "monitoring.h"
 
 double gpu_timers[6] = {0, 0, 0, 0, 0, 0};

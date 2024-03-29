@@ -9,22 +9,32 @@ NVCCFLAGS=-res-usage
 
 INC=./external/include
 
-sources = main.o \
-          file_input.o \
-          monitoring.o \
-          phs_cpu.o \
-          rng.o \
-          phs.o
+bin_sources = main.o \
+              file_input.o \
+              monitoring.o \
+              phs_cpu.o \
+              rng.o \
+              phs.o \
+              global_phs.o 
+
+lib_sources = global_phs.o whizard_gpu_phs.o
 
 %.o: %.cpp 
-	$(CXX) -I$(INC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) -fPIC -I$(INC) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) -I$(INC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) -Xcompiler -fPIC -I$(INC) $(NVCCFLAGS) -c $< -o $@
 
-phs.x: $(sources)
+%.mod: %.f90
+	gfortran -c $< -o $@
+
+phs.x: $(bin_sources)
 	$(LD) $^ -o $@	
-	
+
+libphs.so: $(lib_sources)
+	g++ -shared $^ -o $@
+		
+all: phs.x libphs.so	
 
 clean:
 	rm -f *.o phs.x

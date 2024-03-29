@@ -4,24 +4,9 @@
 #include <cstring>
 
 #include "phs.h"
+#include "global_phs.h"
 #include "monitoring.h"
 #include "file_input.h"
-
-int N_EXT_IN = 0;
-int N_EXT_OUT = 0;
-int N_EXT_TOT = 0;
-
-int N_PRT = 0;
-int N_PRT_IN = 0;
-int N_PRT_OUT = 0;
-int PRT_STRIDE = 0;
-int ROOT_BRANCH = 0;
-int N_BRANCHES = 0;
-int N_BRANCHES_INTERNAL = 0;
-int N_MSQ = 0;
-int N_BOOSTS = 0;
-int N_LAMBDA_IN = 0;
-int N_LAMBDA_OUT = 0; 
 
 __device__ int DN_EXT_IN;
 __device__ int DN_EXT_OUT;

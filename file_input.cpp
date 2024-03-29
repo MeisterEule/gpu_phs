@@ -6,6 +6,7 @@
 #include "rapidjson/stringbuffer.h"
 
 #include "phs.h"
+#include "global_phs.h"
 #include "file_input.h"
 
 input_control_t input_control;
