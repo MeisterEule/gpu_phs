@@ -17,7 +17,10 @@ bin_sources = main.o \
               phs.o \
               global_phs.o 
 
-lib_sources = global_phs.o whizard_gpu_phs.o
+lib_sources = monitoring.o \
+              phs.o \
+              global_phs.o \
+              whizard_gpu_phs.o
 
 %.o: %.cpp 
 	$(CXX) -fPIC -I$(INC) $(CXXFLAGS) -c $< -o $@
@@ -26,15 +29,15 @@ lib_sources = global_phs.o whizard_gpu_phs.o
 	$(NVCC) -Xcompiler -fPIC -I$(INC) $(NVCCFLAGS) -c $< -o $@
 
 %.mod: %.f90
-	gfortran -c $< -o $@
+	gfortran -fPIC -ffree-line-length-0 -c $<
 
 phs.x: $(bin_sources)
 	$(LD) $^ -o $@	
 
 libphs.so: $(lib_sources)
-	g++ -shared $^ -o $@
+	g++ -shared $^ -L/usr/local/cuda-12.1/lib64 -lcudart -o $@
 		
-all: phs.x libphs.so	
+all: phs.x libphs.so gpu_phs_whizard_interface.mod
 
 clean:
-	rm -f *.o phs.x
+	rm -f *.o *.mod phs.x libphs.so

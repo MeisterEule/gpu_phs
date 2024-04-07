@@ -15,9 +15,6 @@
 #include "global_phs.h"
 #include "file_input.h"
 
-double *flv_masses;
-double *flv_widths;
-
 void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, int filepos_start_mom) {
    size_t n_events = count_nevents_in_reference_file (ref_file, N_EXT_TOT, filepos_start_mom);
 

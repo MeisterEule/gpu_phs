@@ -7,10 +7,8 @@ module gpu_phs_whizard_interface
          integer(kind=c_int), intent(in) :: n_channels, n_trees, n_groves, n_x, n_in, n_out
       end subroutine whizard_set_particle_structure
 
-      subroutine whizard_init_mappings (n_channels) &
+      subroutine whizard_init_mappings () &
          bind (C, name='c_whizard_init_mappings') 
-         import c_int
-         integer(kind=c_int), intent(in) :: n_channels
       end subroutine whizard_init_mappings
 
       subroutine whizard_fill_mapping (channel, map_ids, masses, widths) &
@@ -21,5 +19,9 @@ module gpu_phs_whizard_interface
          real(kind=c_double), dimension(*), intent(in) :: masses
          real(kind=c_double), dimension(*), intent(in) :: widths
       end subroutine whizard_fill_mapping
+
+      subroutine whizard_show_module () &
+         bind(C, name='c_whizard_show_module')
+      end subroutine whizard_show_module
    end interface
 end module gpu_phs_whizard_interface

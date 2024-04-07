@@ -41,6 +41,9 @@ extern int *contains_friends;
 
 extern int **i_scatter;
 extern int **i_gather;
+extern int *cmd_msq;
+extern int *cmd_boost_o;
+extern int *cmd_boost_t;
 
 extern double *flv_masses;
 extern double *flv_widths;

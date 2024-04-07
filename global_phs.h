@@ -1,5 +1,6 @@
 #include "mappings.h"
 
+extern int N_CHANNELS;
 extern int N_EXT_IN;
 extern int N_EXT_OUT;
 extern int N_EXT_TOT;
@@ -17,3 +18,13 @@ extern int N_LAMBDA_IN;
 extern int N_LAMBDA_OUT; 
 
 extern mapping_t *mappings_host;
+extern double *flv_masses;
+extern double *flv_widths;
+
+typedef struct {
+  int msq_threads;
+  int cb_threads;
+  int ab_threads;
+} kernel_control_t;
+
+extern kernel_control_t kernel_control;
