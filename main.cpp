@@ -225,7 +225,10 @@ int main (int argc, char *argv[]) {
    int n_prt_tot, n_prt_out;
    int filepos = 0;
    int *header_data = (int*)malloc (NHEADER * sizeof(int));
-   read_reference_header (input_control.ref_file, header_data, &filepos);
+   if (!read_reference_header (input_control.ref_file, header_data, &filepos)) {
+       printf ("Error reading the reference file %s\n", input_control.ref_file);
+       return -1;
+   }
    int n_channels = header_data[H_NCHANNELS];
    int n_trees = header_data[H_NTREES];
    int n_forests = header_data[H_NGROVES];
