@@ -14,6 +14,8 @@
 #include "phs.h"
 #include "file_input.h"
 
+#include "cuda_runtime.h"
+
 double *flv_masses;
 double *flv_widths;
 
@@ -217,7 +219,14 @@ int main (int argc, char *argv[]) {
       return -1;
    }
 
-   // TODO: Check that the logfile in the json exists.
+   // Do any GPUs exist at all?
+   int n_gpus;
+   cudaGetDeviceCount(&n_gpus);
+   if (n_gpus == 0) {
+      printf ("No GPU detected.\n");
+      return -1;
+   }
+
    read_input_json (argv[1]);
 
    init_monitoring ("input.log", "cuda.log");
