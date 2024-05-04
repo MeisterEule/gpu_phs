@@ -7,7 +7,9 @@
 #define TWOPI5  9792.62991312900650440772
 
 typedef void mapping_msq_sig (double, double, double, double, double, double, double*, double*, double*);
+typedef void mapping_msq_inv_sig (double, double, double, double, double, double, double*, double*, double*);
 typedef void mapping_ct_sig (double, double, double *, double*, double*, double*);
+typedef void mapping_ct_inv_sig (double, double, double, double*, double*, double*);
 
 
 typedef struct {
@@ -22,6 +24,8 @@ typedef struct {
    map_constant_t *b;
    mapping_msq_sig **comp_msq;
    mapping_ct_sig **comp_ct;
+   mapping_msq_inv_sig **comp_msq_inv;
+   mapping_ct_inv_sig **comp_ct_inv;
    double *mass_sum;
 } mapping_t;
 

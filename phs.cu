@@ -71,15 +71,19 @@ __global__ void _init_mappings (int n_channels, mapping_t *map_h) {
    mappings_d = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    for (int c = 0; c < n_channels; c++) {
       mappings_d[c].map_id = (int*)malloc(DN_BRANCHES * sizeof(int));
-      mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(DN_BRANCHES * sizeof(mapping_ct_sig*));
       mappings_d[c].comp_msq = (mapping_msq_sig**)malloc(DN_BRANCHES * sizeof(mapping_msq_sig*));
+      mappings_d[c].comp_msq_inv = (mapping_msq_inv_sig**)malloc(DN_BRANCHES * sizeof(mapping_msq_sig*));
+      mappings_d[c].comp_ct = (mapping_ct_sig**)malloc(DN_BRANCHES * sizeof(mapping_ct_sig*));
+      mappings_d[c].comp_ct_inv = (mapping_ct_inv_sig**)malloc(DN_BRANCHES * sizeof(mapping_ct_sig*));
       mappings_d[c].a = (map_constant_t*)malloc(DN_BRANCHES * sizeof(map_constant_t));
       mappings_d[c].b = (map_constant_t*)malloc(DN_BRANCHES * sizeof(map_constant_t));
       mappings_d[c].masses = (double *)malloc(DN_BRANCHES * sizeof(double));
       mappings_d[c].widths = (double *)malloc(DN_BRANCHES * sizeof(double));
       for (int i = 0; i < DN_BRANCHES; i++) {
-         mappings_d[c].comp_ct[i] = NULL;
          mappings_d[c].comp_msq[i] = NULL;
+         mappings_d[c].comp_msq_inv[i] = NULL;
+         mappings_d[c].comp_ct[i] = NULL;
+         mappings_d[c].comp_ct_inv[i] = NULL;
       }
       mappings_d[c].mass_sum = (double*)malloc(DN_BRANCHES * sizeof(double));
       memset (mappings_d[c].mass_sum, 0, DN_BRANCHES * sizeof(double));
