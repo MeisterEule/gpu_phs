@@ -162,6 +162,20 @@ __global__ void _set_device_constants (int _root_branch, int _n_in, int _n_out,
   DPART_STRIDE = DN_BRANCHES * 4;
 }
 
+__global__ void _move_factors (size_t N, int *channels, int n_channels, double *local_factors, double *all_factors) {
+  size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  int channel = channels[tid];
+  all_factors[n_channels * tid + channel] = local_factors[DN_BRANCHES * tid];
+}
+
+__global__ void _move_factors (size_t N, int *all_channels, int this_channel, int n_channels, double *local_factors, double *all_factors) {
+  size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  if (all_channels[tid] == this_channel) return;
+  all_factors[n_channels * tid + this_channel] = local_factors[DN_BRANCHES * tid];
+}
+
 void count_max_boosts (int *nboost_max, int *nboost, int branch_idx) {
    if (has_children[0][branch_idx]) {
       int k1 = daughters1[0][branch_idx];
@@ -490,6 +504,56 @@ __global__ void _apply_msq (size_t N, double sqrts, int *channels, int *cmd, int
   oks[tid] &= (msq0 >= 0 && lda > 0 && m0 > m1 + m2 && m0 <= m_max);
 }
 
+__global__ void _apply_msq_inv (size_t N, int channel, double *msq, double sqrts, int *channels, int *cmd, int n_cmd,
+                                double *p_decay, double *factors) {
+  size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  if (channel == channels[tid]) return;
+  double m_tot = mappings_d[channel].mass_sum[0];
+  for (int c = 0; c < n_cmd - 1; c++) {
+     int k1 = cmd[3 * n_cmd * channel + 3 * c];
+     int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
+     int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
+     double *a = mappings_d[channel].a[branch_idx].a;
+     double m = mappings_d[channel].masses[branch_idx];
+     double w = mappings_d[channel].widths[branch_idx];
+     double m_min = mappings_d[channel].mass_sum[branch_idx];
+     double m_max = sqrts - m_tot + m_min;
+     double x, f;
+     mappings_d[channel].comp_msq_inv[branch_idx](msq[DN_BRANCHES * tid + branch_idx], m_min*m_min, m_max*m_max, sqrts*sqrts,
+                                                  m, w, a, &x, &f);
+     factors[DN_BRANCHES * tid + branch_idx] *= f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2]; 
+
+     double msq0 = msq[DN_BRANCHES * tid + branch_idx];
+     double msq1 = msq[DN_BRANCHES * tid + k1];
+     double msq2 = msq[DN_BRANCHES * tid + k2];
+     double m0 = sqrt(msq0);
+     double m1 = sqrt(msq1);
+     double m2 = sqrt(msq2);
+     double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
+     p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
+     p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
+     factors[DN_BRANCHES * tid + branch_idx] *= sqrt(lda) / msq0;
+  }
+
+  // ROOT BRANCH
+  int k1 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1)];
+  int k2 = cmd[3 * n_cmd * channel + 3 * (n_cmd-1) + 1];
+  double m_max = sqrts;
+  msq[DN_BRANCHES * tid] = sqrts * sqrts;
+  factors[DN_BRANCHES * tid] = factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2];
+  double msq0 = msq[DN_BRANCHES * tid];
+  double msq1 = msq[DN_BRANCHES * tid + k1];
+  double msq2 = msq[DN_BRANCHES * tid + k2];
+  double m0 = sqrt(msq0);
+  double m1 = sqrt(msq1);
+  double m2 = sqrt(msq2);
+  double lda = (msq0 - msq1 - msq2) * (msq0 - msq1 - msq2) - 4 * msq1 * msq2; 
+  p_decay[DN_BRANCHES * tid + k1] = sqrt(lda) / (2 * m0);
+  p_decay[DN_BRANCHES * tid + k2] = -sqrt(lda) / (2 * m0);
+  factors[DN_BRANCHES * tid] *= sqrt(lda) / msq0;
+}
+
 __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd, int n_cmd,
                                 xcounter_t *xc, double *msq, double *p_decay,
                                 double *Ld, double *factors) {
@@ -598,8 +662,10 @@ void gen_phs_from_x_gpu (size_t n_events,
    double *p_decay;
    cudaMalloc((void**)&p_decay, N_BRANCHES * n_events * sizeof(double));
 
-   double *factors_d;
-   cudaMalloc ((void**)&factors_d, N_BRANCHES * n_events * sizeof(double));
+   double *local_factors_d;
+   cudaMalloc ((void**)&local_factors_d, N_BRANCHES * n_events * sizeof(double));
+   double *all_factors_d;
+   cudaMalloc((void**)&all_factors_d, n_channels * n_events * sizeof(double));
    double *volumes_d;
    cudaMalloc ((void**)&volumes_d, N_BRANCHES * n_events * sizeof(double));
    bool *oks_d;
@@ -616,7 +682,7 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    START_TIMER(TIME_KERNEL_INIT);
    _init_first_boost<<<n_events/1024 + 1,1024>>>(n_events, Ld); // Does not work with static __device__
-   _init_fv<<<n_events/1024 + 1,1024>>> (n_events, factors_d, volumes_d, oks_d);
+   _init_fv<<<n_events/1024 + 1,1024>>> (n_events, local_factors_d, volumes_d, oks_d);
    _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_INIT);
@@ -649,7 +715,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    START_TIMER(TIME_KERNEL_MSQ);
    // TODO: Filter sqrts < mass_sum. Irrelevant for fixed sqrts in lepton collisions.
    _apply_msq<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_msq_d,
-                         N_BRANCHES_INTERNAL, xc, p_decay, msq_d, factors_d, volumes_d, oks_d);
+                         N_BRANCHES_INTERNAL, xc, p_decay, msq_d, local_factors_d, volumes_d, oks_d);
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_MSQ);
 
@@ -659,7 +725,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    nb = n_events / nt  + 1;
    START_TIMER(TIME_KERNEL_CB);
    _create_boosts<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
-                             xc, msq_d, p_decay, Ld, factors_d);
+                             xc, msq_d, p_decay, Ld, local_factors_d);
 
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_CB);
@@ -674,7 +740,15 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_AB);
    CHECK_CUDA_STATE(SAFE_CUDA_AB);
-   //printf ("Apply boost: %s\n", cudaGetErrorString(cudaGetLastError()));
+
+   _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
+
+   for (int c = 0; c < n_channels; c++) {
+      _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
+                                N_BRANCHES_INTERNAL, p_decay, local_factors_d);
+      _move_factors<<<nb,nt>>>(n_events, channels_d, n_channels, local_factors_d, all_factors_d);
+   }
+   printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    START_TIMER(TIME_MEMCPY_OUT);
    // This can also be done on the device, primarily to avoid large temporary arrays.
@@ -690,7 +764,7 @@ void gen_phs_from_x_gpu (size_t n_events,
       }
    }
 
-   cudaMemcpy (copy, factors_d, N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+   cudaMemcpy (copy, local_factors_d, N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (int i = 0; i < n_events; i++) {
       factors_h[i] = copy[N_BRANCHES*i];
    }
@@ -714,7 +788,8 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaFree(prt_d);
    cudaFree(msq_d);
    cudaFree(p_decay);
-   cudaFree(factors_d);
+   cudaFree(local_factors_d);
+   cudaFree(all_factors_d);
    cudaFree(volumes_d);
    cudaFree(oks_d);   
    cudaFree(Ld);
