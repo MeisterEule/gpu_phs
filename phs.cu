@@ -735,6 +735,9 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
         }
      }
    }
+   free(phi);
+   free(ct);
+   free(st);
 }                                  
 
 __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_cmd,
@@ -869,6 +872,8 @@ void gen_phs_from_x_gpu (size_t n_events,
    for (int c = 0; c < n_channels; c++) {
       _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
                                 N_BRANCHES_INTERNAL, p_decay, local_factors_d);
+      _create_boosts_inv<<<nb,nt>>> (n_events, sqrts, c, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
+                                     msq_d, p_decay, Ld, local_factors_d);
       _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
    }
    printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
