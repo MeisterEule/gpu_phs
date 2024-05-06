@@ -869,7 +869,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    for (int c = 0; c < n_channels; c++) {
       _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
                                 N_BRANCHES_INTERNAL, p_decay, local_factors_d);
-      _move_factors<<<nb,nt>>>(n_events, channels_d, n_channels, local_factors_d, all_factors_d);
+      _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
    }
    printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
 
