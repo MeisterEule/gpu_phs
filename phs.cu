@@ -614,6 +614,129 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
    }
 }
 
+__device__ double azimuthal_angle (double n[3]) {
+   return atan(n[1] / n[0]);
+}
+
+__device__ void polar_angle_ct (double n[3], double *ct, double *st) {
+   double dn = sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+   *ct = n[2] / dn;
+   *st = sqrt(1 - (*ct)*(*ct));
+}
+
+__global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *channels,
+                                    int *cmd, int n_cmd, double *msq, double *p_decay,
+                                    double *Ld, double *factors) {
+   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   if (channel == channels[tid]) return;
+
+   int branch_idx = cmd[2*n_cmd*channel + 2*0 + 1];
+   double p = p_decay[DN_BRANCHES * tid + branch_idx];
+   double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
+   double bg = m > 0 ? p / m : 0;
+
+   double n[3];
+   n[0] = p_decay[DN_BRANCHES * tid + branch_idx + 1];
+   n[1] = p_decay[DN_BRANCHES * tid + branch_idx + 2];
+   n[2] = p_decay[DN_BRANCHES * tid + branch_idx + 3];
+   double gamma = sqrt(1 + bg * bg);
+   n[2] = n[2] * gamma + p_decay[DN_BRANCHES * tid + branch_idx] * bg;
+   
+   int parent_boost = cmd[3*n_cmd*channel + 3*0 + 2];
+   int boost_idx = cmd[3*n_cmd*channel + 3*0 + 1];
+
+   double *phi = (double*)malloc(DN_BOOSTS * sizeof(double));
+   phi[boost_idx] = azimuthal_angle(n);
+   double *ct = (double*)malloc(DN_BOOSTS * sizeof(double));
+   double *st = (double*)malloc(DN_BOOSTS * sizeof(double));
+   polar_angle_ct(n, &ct[boost_idx], &st[boost_idx]);
+   double x, f;
+   double *b = mappings_d[channel].b[branch_idx].a;
+   mappings_d[channel].comp_ct_inv[branch_idx](ct[boost_idx], st[boost_idx], sqrts*sqrts, b, &x, &f);
+   factors[DN_BRANCHES * tid + branch_idx] *= f;
+
+   struct boost *L1 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
+   L1->l[0][0] = gamma; 
+   L1->l[0][1] = 0;
+   L1->l[0][2] = 0;
+   L1->l[0][3] = -bg;
+   L1->l[1][0] = 0;
+   L1->l[1][1] = gamma;
+   L1->l[1][2] = 0;
+   L1->l[1][3] = 0;
+   L1->l[2][0] = 0;
+   L1->l[2][1] = 0;
+   L1->l[2][2] = gamma;
+   L1->l[2][3] = 0;
+   L1->l[3][0] = -bg;
+   L1->l[3][1] = 0;
+   L1->l[3][2] = 0;
+   L1->l[3][3] = gamma;
+
+   for (int c = 1; c < n_cmd; c++) {
+      branch_idx = cmd[3*n_cmd*channel + 3*c];
+      p = p_decay[DN_BRANCHES * tid + branch_idx];
+      m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
+      bg = m > 0 ? p / m : 0;
+      gamma = sqrt (1 + bg * bg);
+
+      parent_boost = cmd[3*n_cmd*channel + 3*c + 2];
+      boost_idx = cmd[3*n_cmd*channel + 3*c + 1];
+      double cp0 = cos(phi[parent_boost]);
+      double sp0 = sin(phi[parent_boost]);
+      double ct0 = ct[parent_boost];
+      double st0 = st[parent_boost];
+      double p1[4];
+      struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
+      for (int i = 0; i < 4; i++) {
+         for (int j = 0; j < 4; j++) {
+            p1[0] = p_decay[j] * L0->l[i][j];
+         }
+      }
+
+     double px = cp0 * p1[0] + sp0 * p1[1];  
+     double py = -sp0  * p1[0] + cp0 * p1[1];
+     n[0] = ct0 * px - st0 * p1[2];
+     n[1] = py;
+     n[2] = st0 * px + ct0 * p1[3];
+     gamma = sqrt(1 + bg*bg);
+     n[2] = n[2] * gamma - p1[0] * bg;
+     phi[boost_idx] = azimuthal_angle(n);
+     polar_angle_ct (n, &ct[boost_idx], &st[boost_idx]);
+     mappings_d[channel].comp_ct_inv[branch_idx](ct[c], st[c], sqrts*sqrts, b, &x, &f);
+     factors[DN_BRANCHES * tid + branch_idx] *= f;
+
+     double L1[16][16];
+     L1[0][0] = gamma;
+     L1[0][1] = -bg * st0 * cp0;
+     L1[0][2] = -bg * st0 * sp0;
+     L1[0][3] = -bg * ct0;
+     L1[1][0] = 0;
+     L1[1][1] = ct0 * cp0;
+     L1[1][2] = ct0 * sp0;
+     L1[1][3] = -st0;
+     L1[2][0] = 0;
+     L1[2][1] = -sp0;
+     L1[2][2] = cp0;
+     L1[2][3] = 0;
+     L1[3][0] = -bg;
+     L1[3][1] = gamma * st0 * cp0;
+     L1[3][2] = gamma * st0 * sp0;
+     L1[3][3] = gamma * ct0;
+
+     struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
+
+     for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+           for (int k = 0; k < 4; k++) {
+              Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+           }
+        }
+     }
+   }
+}                                  
+
 __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_cmd,
                                       double *Ld, double *msq, double *p_decay, double *prt) {
    size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
