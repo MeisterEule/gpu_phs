@@ -61,6 +61,55 @@ void mapping_msq_from_x_cpu (int type, double x, double s, double m, double w, d
    }
 }
 
+void mapping_x_from_msq_cpu (int type, double s, double m, double w, double msq,
+                             double msq_min, double msq_max, double *a, double *x, double *factor) {
+   double msq0;
+   double tmp;
+   double z;
+   switch (type) {
+      case MAP_NO:
+         *x = (msq - msq_min) / a[1];
+         *factor = a[2];
+         break;
+      case MAP_SCHANNEL:
+         msq0 = m*m;
+         tmp = (msq - msq0) / (m * w);
+         *x = (atan(tmp) - a[0]) / (a[1] - a[0]);
+         *factor = a[2] * (1 + tmp*tmp);
+         break;
+      case MAP_COLLINEAR:
+      case MAP_INFRARED:
+      case MAP_RADIATION:
+         msq0 = msq - msq_min + a[0];
+         *x = log (msq0 / a[0]) / a[1];
+         *factor = a[2] * msq0;
+         break;
+      case MAP_TCHANNEL:
+      case MAP_UCHANNEL:
+         if (msq < (msq_max + msq_min) / 2) {
+            msq0 = msq - msq_min + a[0];
+            *x = log(msq0 / a[0]) / a[1];
+         } else {
+            msq0 = msq_max - msq + a[0];
+            *x = log(msq0 / a[0]) / a[1];
+         }
+         *factor = a[2] * msq0;
+         break;
+      case MAP_STEP_H:
+         z = (msq - msq_min) / (msq_max - msq_min);
+         tmp = a[1] / (a[0] * a[2]);
+         *x = ((a[0] + z / a[2] + tmp) - sqrt((a[0] - z / a[2]) * (a[0] - z / a[2]) + 2 * tmp * (a[0] + z / a[2]) + tmp * tmp)) / 2;
+         *factor = (a[1] / (a[0] - *x) / (a[0] - *x) + a[2]) * (msq_max - msq_min) / s;
+         break;
+      case MAP_STEP_E:
+         z = (msq - msq_min) / (msq_max - msq_min); 
+         tmp = 1 + a[1] * exp(z / a[2]);
+         *x = (z - a[2] * log(tmp / (1 + a[1])) / a[0];
+         *factor = a[0] * tmp * (msq_max - msq_min) / s;
+         break;
+   }
+}
+
 void mapping_ct_from_x_cpu (int type, double x, double s, double *b, double *ct, double *st, double *factor) {
    double tmp;
    switch (type) {
