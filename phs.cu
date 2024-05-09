@@ -707,7 +707,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
      mappings_d[channel].comp_ct_inv[branch_idx](ct[c], st[c], sqrts*sqrts, b, &x, &f);
      factors[DN_BRANCHES * tid + branch_idx] *= f;
 
-     double L1[16][16];
+     double L1[4][4];
      L1[0][0] = gamma;
      L1[0][1] = -bg * st0 * cp0;
      L1[0][2] = -bg * st0 * sp0;

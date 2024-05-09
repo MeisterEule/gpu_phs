@@ -104,7 +104,7 @@ void mapping_x_from_msq_cpu (int type, double s, double m, double w, double msq,
       case MAP_STEP_E:
          z = (msq - msq_min) / (msq_max - msq_min); 
          tmp = 1 + a[1] * exp(z / a[2]);
-         *x = (z - a[2] * log(tmp / (1 + a[1])) / a[0];
+         *x = (z - a[2] * log(tmp / (1 + a[1]))) / a[0];
          *factor = a[0] * tmp * (msq_max - msq_min) / s;
          break;
    }
@@ -143,6 +143,32 @@ void mapping_ct_from_x_cpu (int type, double x, double s, double *b, double *ct,
             *factor = 0;
          }
          break;
+   }
+}
+
+void mapping_x_from_ct_cpu (int type, double s, double ct, double st, double *b, double *x, double *factor) {
+   double tmp;
+   switch (type) {
+      case MAP_NO:
+      case MAP_SCHANNEL:
+      case MAP_INFRARED:
+      case MAP_RADIATION:
+      case MAP_STEP_E:
+      case MAP_STEP_H:
+         *x = (ct + 1) / 2;
+         *factor = 1;
+         break;
+      case MAP_COLLINEAR:
+      case MAP_TCHANNEL:
+      case MAP_UCHANNEL:
+         if (ct < 0) {
+            tmp = ct + b[0] + 1;
+            *x = log(tmp / b[0]) / (2 * b[1]); 
+         } else {
+            tmp = -ct + b[0] + 1;
+            *x = 1 - log(tmp / b[0]) / (2 * b[1]);
+         }
+         *factor = tmp * b[1];
    }
 }
 
@@ -208,6 +234,52 @@ void set_msq_cpu (int channel, int branch_idx, double m_tot,
    }
 }
 
+void get_msq_cpu (int channel, int branch_idx, double m_tot, double *msq, double sqrts,
+                  double *p_decay, double *x, double *factor) {
+   int k1 = daughters1[channel][branch_idx];
+   int k2 = daughters2[channel][branch_idx];
+   double f1, f2;
+   if (has_children[channel][k1]) {
+      get_msq_cpu (channel, k1, m_tot, msq, sqrts, p_decay, x, &f1);
+   } else {
+      f1 = 1;
+   }
+   if (has_children[channel][k2]) {
+      get_msq_cpu (channel, k2, m_tot, msq, sqrts, p_decay, x, &f2);
+   } else {
+      f2 = 1;
+   }
+
+   double m_min = mappings_host[channel].mass_sum[branch_idx]; 
+   double m_max = sqrts - m_tot + m_min;
+   if (branch_idx == ROOT_BRANCH) {
+      *factor = f1 * f2;
+   } else {
+      double *a = mappings_host[channel].a[branch_idx].a;
+      double m = mappings_host[channel].masses[branch_idx]; 
+      double w = mappings_host[channel].widths[branch_idx];
+      mapping_x_from_msq_cpu (mappings_host[channel].map_id[branch_idx], sqrts * sqrts, m, w,
+                              msq[branch_idx], m_min*m_min, m_max*m_max, a, x, factor);
+      *factor *= f1 * f2; 
+   }
+
+   double this_msq = msq[branch_idx];
+   double msq1 = msq[k1];
+   double msq2 = msq[k2];
+   double m1 = sqrt(msq1);
+   double m2 = sqrt(msq2);
+   double m = sqrt(this_msq);
+   double lda = (this_msq - msq1 - msq2) * (this_msq - msq1 - msq2) - 4 * msq1 * msq2;
+   if (lda > 0) {
+      p_decay[k1] = sqrt(lda) / (2 * m);
+      p_decay[k2] = -p_decay[k1];
+      *factor *= sqrt(lda) / this_msq;
+   } else {
+      p_decay[k1] = 0;
+      p_decay[k2] = 0;
+      *factor = 0;
+   }
+}
 
 void set_angles_cpu (int channel, int branch_idx,
                      double *x, size_t *idx_x, double s, double *msq, double *factor,
@@ -268,6 +340,98 @@ void set_angles_cpu (int channel, int branch_idx,
       set_angles_cpu (channel, k1, x, idx_x, s, msq, factor, p_decay, prt, L_new);
       set_angles_cpu (channel, k2, x, idx_x, s, msq, factor, p_decay, prt, L_new);
    }
+}
+
+double azimuthal_angle_cpu (double n[3]) {
+   return atan(n[1] / n[0]);
+}
+
+void polar_angle_ct_cpu (double n[3], double *ct, double *st) {
+   double dn = sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+   *ct = n[2] / dn;
+   *st = sqrt(1 - (*ct)*(*ct));
+}
+
+void get_angles_cpu (int channel, int branch_idx,
+                double s, double *msq, double *p_decay, phs_prt_t *prt,  
+                double L0[4][4], double *phi0, double *ct0, double *st0, double *x, double *factor) {
+   int k1 = daughters1[channel][branch_idx];
+   int k2 = daughters2[channel][branch_idx];
+   double p1[4];
+   for (int i = 0; i < 4; i++) {
+      p1[i] = 0;
+      for (int j = 0; j < 4; j++) {
+         p1[i] += L0[i][j] * prt[branch_idx].p[j];
+      }
+   }
+   double cp0, sp0; 
+   if (phi0 != NULL) {
+      cp0 = cos(*phi0);  
+      sp0 = sin(*phi0);  
+   }
+   double n[3];
+   double ct = ct0 != NULL ? *ct0 : 0;
+   double st = st0 != NULL ? *st0 : 0;
+   double m = sqrt(msq[branch_idx]);
+   double bg = m > 0 ? p_decay[branch_idx] / m : 0;
+   double gamma = sqrt(1 + bg*bg);
+   if (phi0 != NULL) {
+      double px = cp0 * p1[1] + sp0 * p1[3];
+      double py = -sp0 * p1[1] + cp0 * p1[2];
+      n[0] = ct * px - st * p1[3];
+      n[1] = py;
+      n[2] = st * px + ct * p1[3];
+      n[2] = n[2] * gamma - p1[0] * bg;
+   } else {
+      n[0] = p1[0];
+      n[1] = p1[1];
+      n[2] = p1[2];
+      n[2] = n[2] * gamma - p1[0] * bg;
+   }
+   double phi = azimuthal_angle_cpu (n);
+   polar_angle_ct_cpu (n, &ct, &st);
+   double *b = mappings_host[channel].b[branch_idx].a;
+   double f;
+   mapping_x_from_ct_cpu (mappings_host[channel].map_id[branch_idx], s, ct, st, b, x, &f);
+   *factor *= f;
+ 
+   double L1[4][4];
+   double L_new[4][4];
+   memset (L_new, 0, 16 * sizeof(double));
+   if (phi0 != NULL) {
+      L1[0][0] = gamma;
+      L1[0][1] = -bg * (*st0) * cp0;  
+      L1[0][2] = -bg * (*st0) * sp0;
+      L1[0][3] = -bg * (*ct0);
+      L1[1][0] = 0;
+      L1[1][1] = (*ct0) * cp0;
+      L1[1][2] = (*ct0) * sp0;
+      L1[1][3] = -(*st0);
+      L1[2][0] = 0;
+      L1[2][1] = -sp0;
+      L1[2][2] = cp0;
+      L1[2][3] = 0;
+      L1[3][0] = -bg;
+      L1[3][1] = gamma * (*st0) * cp0;
+      L1[3][2] = gamma * (*st0) * sp0;
+      L1[3][3] = gamma * (*ct0);
+
+      for (int i = 0; i < 4; i++) {
+         for (int j = 0; j < 4; j++) {
+             for (int k = 0; k < 4; k++) {
+                L_new[i][j] += L0[i][k] * L1[k][j];
+             }
+         }
+      }
+   } else {
+      double gamma = sqrt(1 + bg*bg);
+      L_new[0][0] = gamma; 
+      L_new[0][3] = -bg;
+      L_new[3][0] = -bg;
+      L_new[3][3] = gamma;
+   }
+   get_angles_cpu (channel, k1, s, msq, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
+   get_angles_cpu (channel, k2, s, msq, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
 }
 
 
