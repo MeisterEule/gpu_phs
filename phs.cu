@@ -757,6 +757,24 @@ __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_c
    }
 }
 
+__global__ void _combine_particles (size_t N, int this_channel, int *channels, int *cmd, int n_cmd, double *prt, double *msq) {
+   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   if (this_channel == channels[tid]) return;
+   for (int c = 0; c < n_cmd; c++) {
+      int branch_idx = cmd[3*n_cmd*this_channel + 3*c + 2];
+      int k1 = cmd[3*n_cmd*this_channel + 3*c];
+      int k2 = cmd[3*n_cmd*this_channel + 3*c + 1];
+      for (int i = 0; i < 4; i++) {
+         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = prt[DPART_STRIDE * tid + 4 * k1 + i] + prt[DPART_STRIDE * tid + 4 * k2 + i];
+      }
+      msq[DN_BRANCHES * tid + branch_idx] = prt[DPART_STRIDE * tid + 4 * branch_idx] * prt[DPART_STRIDE * tid + 4 * branch_idx]
+                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 1] * prt[DPART_STRIDE * tid + 4 * branch_idx + 1]
+                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 2] * prt[DPART_STRIDE * tid + 4 * branch_idx + 2]
+                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 3] * prt[DPART_STRIDE * tid + 4 * branch_idx + 3];
+   }
+}
+
 void gen_phs_from_x_gpu (size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h) {
@@ -870,6 +888,10 @@ void gen_phs_from_x_gpu (size_t n_events,
    _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
 
    for (int c = 0; c < n_channels; c++) {
+      _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, prt_d, msq_d);
+   }
+
+   for (int c = 0; c < n_channels; c++) {
       _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
                                 N_BRANCHES_INTERNAL, p_decay, local_factors_d);
       _create_boosts_inv<<<nb,nt>>> (n_events, sqrts, c, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
@@ -892,11 +914,16 @@ void gen_phs_from_x_gpu (size_t n_events,
       }
    }
 
-   cudaMemcpy (copy, local_factors_d, N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
-   for (int i = 0; i < n_events; i++) {
-      factors_h[i] = copy[N_BRANCHES*i];
+   free(copy);
+   copy = (double*)malloc(n_events * n_channels * sizeof(double));
+   cudaMemcpy (copy, all_factors_d, n_channels * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+   for (int i = 0; i < n_events * n_channels; i++) {
+      factors_h[i] = copy[i];
    }
+   printf ("First factors: %lf %lf %lf\n", factors_h[0], factors_h[1], factors_h[2]);
 
+   free(copy);
+   copy = (double*)malloc(N_BRANCHES * n_events * sizeof(double));
    cudaMemcpy (copy, volumes_d, N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (int i = 0; i < n_events; i++) {
       volumes_h[i] = copy[N_BRANCHES*i];

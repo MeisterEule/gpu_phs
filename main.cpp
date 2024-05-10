@@ -55,7 +55,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    fprintf (logfl[LOG_INPUT], "\n");
 
    double *p = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
-   double *factors = (double*)malloc(n_events * sizeof(double)); 
+   double *factors = (double*)malloc(n_events * n_channels * sizeof(double)); 
    double *volumes = (double*)malloc(n_events * sizeof(double)); 
    bool *oks = (bool*)malloc(N_PRT * n_events * sizeof(bool));
 
@@ -112,7 +112,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    init_phs_gpu(n_channels, mappings_host, sqrts);
 
    double *p_gpu = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
-   double *factors_gpu = (double*)malloc(n_events * sizeof(double)); 
+   double *factors_gpu = (double*)malloc(n_events * n_channels * sizeof(double)); 
    double *volumes_gpu = (double*)malloc(n_events * sizeof(double)); 
    bool *oks_gpu = (bool*)malloc(n_events * sizeof(bool));
 
@@ -179,7 +179,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    FILE *fp = fopen ("compare.gpu_cpu", "w+");
    t1 = mysecond();
-   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, channels, &n_ok, p_gpu, oks_gpu, fp);
+   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, n_channels, channels, &n_ok, p_gpu, oks_gpu, fp);
    t2 = mysecond();
    printf ("CPU: %lf sec\n", t2 - t1);
    printf ("Valid events: %ld / %ld (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);

@@ -14,7 +14,7 @@ __device__ void mapping_msq_from_x_none (double x, double s, double m, double w,
 __device__ void mapping_x_from_msq_none (double msq, double msq_min, double msq_max, double s, double m, double w,
                                          double *a, double *x, double *factor) {
   *x = (msq - msq_min) / a[2];
-  *factor = a[3];
+  *factor = a[2];
 }
 
 __device__ void mapping_msq_from_x_schannel (double x, double s, double m, double w, double msq_min, double msq_max, double *a,
