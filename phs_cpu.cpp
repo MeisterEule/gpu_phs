@@ -260,7 +260,6 @@ void get_msq_cpu (int i_event, int channel, int branch_idx, double m_tot, phs_pr
       double w = mappings_host[channel].widths[branch_idx];
       mapping_x_from_msq_cpu (mappings_host[channel].map_id[branch_idx], sqrts * sqrts, m, w,
                               prt[branch_idx].p2, m_min*m_min, m_max*m_max, a, x, factor);
-      }
       *factor *= f1 * f2; 
    }
 
