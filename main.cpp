@@ -211,14 +211,22 @@ void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
    }
 } 
 
+bool check_file_exists (const char *filename) {
+   std::ifstream infile(filename);
+   return infile.good();
+}
+
 int main (int argc, char *argv[]) {
    if (argc < 2) {
       printf ("No json file given!\n");
       return -1;
    }
 
-   // TODO: Check that the logfile in the json exists.
    read_input_json (argv[1]);
+   if (!check_file_exists (input_control.ref_file)) {
+      printf ("Input error: The sample file %s does not exist!\n", input_control.ref_file);
+      return -1;
+   }
 
    init_monitoring ("input.log", "cuda.log");
 
