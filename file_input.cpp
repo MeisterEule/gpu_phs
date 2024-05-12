@@ -26,10 +26,16 @@ void read_input_json (const char *filename) {
 
    bool verify_whizard;
    if (d.HasMember("verify")) {
-      assert (d["verify"].IsString());
-      verify_whizard = !strcmp(d["verify"].GetString(), "whizard");
+      assert (d["verify"]["against"].IsString());
+      verify_whizard = !strcmp(d["verify"]["against"].GetString(), "whizard");
+      if (d["verify"].HasMember("epsilon")) {
+         input_control.compare_tolerance = d["verify"]["epsilon"].GetDouble();
+      } else {
+         input_control.compare_tolerance = DEFAULT_COMPARE_EPSILON;
+      }
    } else {
       verify_whizard = true;
+      input_control.compare_tolerance = DEFAULT_COMPARE_EPSILON;
    }
 
    if (!verify_whizard) {

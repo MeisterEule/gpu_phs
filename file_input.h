@@ -7,6 +7,8 @@
 #define BYTES_PER_GB 1073741824
 #define BYTES_PER_MB    1048576
 
+#define DEFAULT_COMPARE_EPSILON 0.001
+
 enum {RT_INTERNAL_FIXED_N, RT_INTERNAL_FIXED_MEMORY, RT_WHIZARD};
 
 typedef struct {
@@ -20,6 +22,7 @@ typedef struct {
   int cb_threads;
   int ab_threads; 
   bool check_cpu;
+  double compare_tolerance;
 } input_control_t;
 
 extern input_control_t input_control;
