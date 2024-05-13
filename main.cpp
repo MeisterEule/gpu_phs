@@ -14,6 +14,8 @@
 #include "phs.h"
 #include "file_input.h"
 
+#include "cuda_runtime.h"
+
 double *flv_masses;
 double *flv_widths;
 
@@ -211,21 +213,40 @@ void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
    }
 } 
 
+bool check_file_exists (const char *filename) {
+   std::ifstream infile(filename);
+   return infile.good();
+}
+
 int main (int argc, char *argv[]) {
    if (argc < 2) {
       printf ("No json file given!\n");
       return -1;
    }
 
-   // TODO: Check that the logfile in the json exists.
    read_input_json (argv[1]);
+   if (!check_file_exists (input_control.ref_file)) {
+      printf ("Input error: The sample file %s does not exist!\n", input_control.ref_file);
+      return -1;
+   }
+
+   // Do any GPUs exist at all?
+   int n_gpus;
+   cudaGetDeviceCount(&n_gpus);
+   if (n_gpus == 0) {
+      printf ("No GPU detected.\n");
+      return -1;
+   }
 
    init_monitoring ("input.log", "cuda.log");
 
    int n_prt_tot, n_prt_out;
    int filepos = 0;
    int *header_data = (int*)malloc (NHEADER * sizeof(int));
-   read_reference_header (input_control.ref_file, header_data, &filepos);
+   if (!read_reference_header (input_control.ref_file, header_data, &filepos)) {
+       printf ("Error reading the reference file %s\n", input_control.ref_file);
+       return -1;
+   }
    int n_channels = header_data[H_NCHANNELS];
    int n_trees = header_data[H_NTREES];
    int n_forests = header_data[H_NGROVES];
