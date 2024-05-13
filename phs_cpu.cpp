@@ -653,14 +653,12 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
          }
          printf ("\n");
       }
-   }
 
-   free (all_factors);
-   free (p_decay);
-   free (msq);
-   free (prt);
-=======
-    if (ok) (*n_oks)++;
+      free (all_factors);
+      free (p_decay);
+      free (msq);
+      free (prt);
+      if (ok) (*n_oks)++;
   }
   fprintf (fp, "Failed events with EPSILON = %lf: %d / %d (%.2f%%)\n", epsilon, n_events_failed, n_events, (double)n_events_failed / n_events * 100);
   if (n_events_failed > 0) {
@@ -674,6 +672,5 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
   free (p_decay);
   free (msq);
   free (prt);
->>>>>>> main
 }
 
