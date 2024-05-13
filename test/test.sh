@@ -5,9 +5,11 @@ rm -f *.log
 rm -f *.json
 rm -f compare*
 
-cat << EOF1 > tt.json
+generate_json () {
+proc=$1
+cat << EOF > ${proc}.json
 {
-   "ref_file": "../samples/tt.ref",
+   "ref_file": "../samples/${proc}.ref",
    "verify": {
       "against": "whizard",
       "epsilon": 0.0001
@@ -17,7 +19,7 @@ cat << EOF1 > tt.json
       "n_trials": 10,
       "n_events": 10000
    },
-   "gpu_memory": 5000, 
+   "gpu_memory": 11000, 
    "msq": {
       "threads": 512
    },
@@ -28,76 +30,37 @@ cat << EOF1 > tt.json
       "threads": 512
    }
 }
-EOF1
+EOF
 
-cat << EOF2 > ttH.json
-{
-   "ref_file": "../samples/ttH.ref",
-   "verify": {
-      "against": "whizard",
-      "epsilon": 0.0001
-   },
-   "check_cpu": true,
-   "warmup": {
-      "n_trials": 10,
-      "n_events": 10000
-   },
-   "gpu_memory": 5000, 
-   "msq": {
-      "threads": 512
-   },
-   "create_boosts": {
-      "threads": 512
-   },
-   "apply_boosts": {
-      "threads": 512
-   }
 }
-EOF2
 
-cat << EOF3 > uu4g.json
-{
-   "ref_file": "../samples/uu4g.ref",
-   "verify": {
-      "against": "whizard",
-      "epsilon": 0.0001
-   },
-   "check_cpu": true,
-   "warmup": {
-      "n_trials": 10,
-      "n_events": 10000
-   },
-   "gpu_memory": 5000, 
-   "msq": {
-      "threads": 512
-   },
-   "create_boosts": {
-      "threads": 512
-   },
-   "apply_boosts": {
-      "threads": 512
-   }
-}
-EOF3
 
-testcases="tt ttH uu4g"
+testcases="tt ttH uu4g bwbw bmunubmunu"
 
 echo "CHECK AGAINST WHIZARD REFERENCE MOMENTA"
 for t in $testcases; do
-   d=$(date +%y_%m_%_H_%M_%s)
+   generate_json $t
+   echo "TESTCASE: $t"
+   d=$(date +%m_%d_%_H_%M_%s)
    ../phs.x $t.json | tee ${t}_${d}.out
    mv cuda.log cuda_${t}_${d}.log
    mv input.log input_${t}_${d}.log
    if [ -f compare.gpu ]; then
      mv compare.gpu compare_${t}_${d}.gpu
    fi
-   if [ -f compare.cp ]; then
+   if [ -f compare.cpu ]; then
      mv compare.cpu compare_${t}_${d}.cpu
    fi
 done
 
-echo "CHECK INTERNALL AGAINST CPU IMPLEMENTATION"
+echo "CHECK INTERNALLY AGAINST CPU IMPLEMENTATION"
 for t in $testcases; do
    sed -i 's/whizard/internal/g' $t.json
    ../phs.x $t.json
+   if [ -f compare.gpu_cpu ]; then
+     mv compare.gpu_cpu compare_${t}_${d}.gpu_cpu
+   fi
+
 done
+
+grep Failed\ events *.gpu > summary.log

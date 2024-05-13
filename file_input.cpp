@@ -1,6 +1,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <queue>
 
 #include "rapidjson/document.h"
