@@ -112,8 +112,12 @@ size_t count_nevents_in_reference_file (const char *ref_file, int n_momenta, int
    return n_lines / n_lines_per_batch;
 }
 
-void read_reference_header (const char *ref_file, int *header_data, int *filepos) {
+int read_reference_header (const char *ref_file, int *header_data, int *filepos) {
    std::ifstream reader (ref_file);
+   if (!reader) {
+      printf ("Error: Reference file %s does not exist\n", ref_file);    
+      return 0;
+   }
    std::string line; 
    std::string dummy;
 
@@ -125,6 +129,7 @@ void read_reference_header (const char *ref_file, int *header_data, int *filepos
       c++;
       *filepos = reader.tellg();
    }
+   return 1;
 }
 
 void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_prt_out, int n_external, int *filepos) {

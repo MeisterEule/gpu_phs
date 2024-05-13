@@ -7,7 +7,7 @@ LD=$(NVCC)
 CXXFLAGS=
 NVCCFLAGS=-res-usage
 
-INC=./external/include
+INC=-I./external/include -I/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include
 
 sources = main.o \
           file_input.o \
@@ -17,13 +17,13 @@ sources = main.o \
           phs.o
 
 %.o: %.cpp 
-	$(CXX) -I$(INC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(INC) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) -I$(INC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(INC) $(NVCCFLAGS) -c $< -o $@
 
 phs.x: $(sources)
-	$(LD) $^ -o $@	
+	$(LD) $^ -o $@ -L/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib -lcudart
 	
 
 clean:
