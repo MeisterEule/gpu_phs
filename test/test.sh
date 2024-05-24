@@ -42,7 +42,7 @@ echo "CHECK AGAINST WHIZARD REFERENCE MOMENTA"
 for t in $testcases; do
    generate_json $t
    echo "TESTCASE: $t"
-   d=$(date +%m_%d_%_H_%M_%s)
+   d=$(date +%m_%d_%H_%M_%s)
    ../phs.x $t.json | tee ${t}_${d}.out
    mv cuda.log cuda_${t}_${d}.log
    mv input.log input_${t}_${d}.log
