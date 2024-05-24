@@ -7,7 +7,7 @@ LD=$(NVCC)
 CXXFLAGS=
 NVCCFLAGS=-res-usage
 
-INC=-I./external/include -I/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include
+INC=-I./external/include -I/usr/local/cuda-12.1/include
 
 sources = main.o \
           file_input.o \

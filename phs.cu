@@ -808,8 +808,12 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    double *local_factors_d;
    cudaMalloc ((void**)&local_factors_d, N_BRANCHES * n_events * sizeof(double));
-   double *all_factors_d;
-   cudaMalloc((void**)&all_factors_d, n_channels * n_events * sizeof(double));
+   double *all_factors_d = NULL;
+   if (input_control.do_inverse_mapping) {
+      cudaMalloc((void**)&all_factors_d, n_channels * n_events * sizeof(double));
+   } else {
+      ///cudaMalloc((void**)&all_factors_d, N_BRANCHES * n_events * sizeof(double));
+   }
    double *volumes_d;
    cudaMalloc ((void**)&volumes_d, N_BRANCHES * n_events * sizeof(double));
    bool *oks_d;
@@ -885,7 +889,12 @@ void gen_phs_from_x_gpu (size_t n_events,
    STOP_TIMER(TIME_KERNEL_AB);
    CHECK_CUDA_STATE(SAFE_CUDA_AB);
 
-   _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
+   if (input_control.do_inverse_mapping) {
+      _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, n_channels, local_factors_d, all_factors_d);
+   } else {
+      ///_move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, DN_BRANCHES, local_factors_d, all_factors_d);
+   }
+   cudaDeviceSynchronize();
 
    if (input_control.do_inverse_mapping) {
       for (int c = 0; c < n_channels; c++) {
@@ -917,10 +926,18 @@ void gen_phs_from_x_gpu (size_t n_events,
    }
 
    free(copy);
-   copy = (double*)malloc(n_events * n_channels * sizeof(double));
-   cudaMemcpy (copy, all_factors_d, n_channels * n_events * sizeof(double), cudaMemcpyDeviceToHost);
-   for (int i = 0; i < n_events * n_channels; i++) {
-      factors_h[i] = copy[i];
+   if (input_control.do_inverse_mapping) {
+      copy = (double*)malloc(n_events * n_channels * sizeof(double));
+      cudaMemcpy (copy, all_factors_d, n_channels * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+      for (int i = 0; i < n_events * n_channels; i++) {
+         factors_h[i] = copy[i];
+      }
+   } else {
+      copy = (double*)malloc(n_events * N_BRANCHES * sizeof(double));
+      cudaMemcpy (copy, local_factors_d, N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+      for (int i = 0; i < n_events; i++) {
+         factors_h[i] = copy[N_BRANCHES*i];
+      }
    }
    printf ("First factors: %lf %lf %lf\n", factors_h[0], factors_h[1], factors_h[2]);
 
@@ -946,7 +963,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaFree(msq_d);
    cudaFree(p_decay);
    cudaFree(local_factors_d);
-   cudaFree(all_factors_d);
+   if (input_control.do_inverse_mapping) cudaFree(all_factors_d);
    cudaFree(volumes_d);
    cudaFree(oks_d);   
    cudaFree(Ld);

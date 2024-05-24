@@ -633,18 +633,20 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       //      if (i == 0) printf ("Set msq[%d]: %lf\n", j, msq[j]);
       //   }
       //}
-      for (int c = 0; c < n_channels; c++) {
-         if (c == this_channel) continue;
-         combine_particles_cpu (c, ROOT_BRANCH, prt);
-      }
+      if (input_control.do_inverse_mapping) {
+         for (int c = 0; c < n_channels; c++) {
+            if (c == this_channel) continue;
+            combine_particles_cpu (c, ROOT_BRANCH, prt);
+         }
 
-      for (int c = 0; c < n_channels; c++) {
-         if (c == this_channel) continue;
-         m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
-         double x, factor;
-         get_msq_cpu (i, c, ROOT_BRANCH, m_tot, prt, sqrts, p_decay, &x, &factor);
-         get_angles_cpu (c, ROOT_BRANCH, sqrts*sqrts, p_decay, prt, L0, NULL, NULL, NULL, &x, &factor);
-         all_factors[c] = factor;
+         for (int c = 0; c < n_channels; c++) {
+            if (c == this_channel) continue;
+            m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
+            double x, factor;
+            get_msq_cpu (i, c, ROOT_BRANCH, m_tot, prt, sqrts, p_decay, &x, &factor);
+            get_angles_cpu (c, ROOT_BRANCH, sqrts*sqrts, p_decay, prt, L0, NULL, NULL, NULL, &x, &factor);
+            all_factors[c] = factor;
+         }
       }
       ///if (i == 0) {
       ///   printf ("all_factors: ");
@@ -654,12 +656,15 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       ///   printf ("\n");
       ///}
 
-      free (all_factors);
-      free (p_decay);
-      free (msq);
-      free (prt);
       if (ok) (*n_oks)++;
+      //printf ("i_event: %d / %d\n", i, n_events);
   }
+  //printf ("Event generation done\n");
+  free (all_factors);
+  free (p_decay);
+  free (msq);
+  free (prt);
+
   fprintf (fp, "Failed events with EPSILON = %lf: %d / %d (%.2f%%)\n", epsilon, n_events_failed, n_events, (double)n_events_failed / n_events * 100);
   if (n_events_failed > 0) {
      fprintf (fp, "Max. deviations: %lf %lf %lf %lf\n",
@@ -668,9 +673,5 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
               sum_abs_deviation[0] / n_events_failed, sum_abs_deviation[1] / n_events_failed,
               sum_abs_deviation[2] / n_events_failed, sum_abs_deviation[3] / n_events_failed);
   }
-
-  free (p_decay);
-  free (msq);
-  free (prt);
 }
 

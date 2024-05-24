@@ -65,3 +65,4 @@ for t in $testcases; do
 done
 
 grep Failed\ events *.gpu > summary.log
+grep Failed\ events *.gpu_cpu >> summary.log
