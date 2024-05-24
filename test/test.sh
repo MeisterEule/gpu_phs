@@ -15,6 +15,7 @@ cat << EOF > ${proc}.json
       "epsilon": 0.0001
    },
    "check_cpu": true,
+   "skip_inverse": true,
    "warmup": {
       "n_trials": 10,
       "n_events": 10000

@@ -646,13 +646,13 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
          get_angles_cpu (c, ROOT_BRANCH, sqrts*sqrts, p_decay, prt, L0, NULL, NULL, NULL, &x, &factor);
          all_factors[c] = factor;
       }
-      if (i == 0) {
-         printf ("all_factors: ");
-         for (int c = 0; c < n_channels; c++) {
-            printf ("%lf ", all_factors[c]);
-         }
-         printf ("\n");
-      }
+      ///if (i == 0) {
+      ///   printf ("all_factors: ");
+      ///   for (int c = 0; c < n_channels; c++) {
+      ///      printf ("%lf ", all_factors[c]);
+      ///   }
+      ///   printf ("\n");
+      ///}
 
       free (all_factors);
       free (p_decay);

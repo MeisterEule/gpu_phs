@@ -23,6 +23,7 @@ typedef struct {
   int ab_threads; 
   bool check_cpu;
   double compare_tolerance;
+  bool do_inverse_mapping;
 } input_control_t;
 
 extern input_control_t input_control;

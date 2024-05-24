@@ -95,6 +95,13 @@ void read_input_json (const char *filename) {
       input_control.check_cpu = false;
    }
 
+   if (d.HasMember("skip_inverse")) {
+      assert (d["skip_inverse"].IsBool());
+      input_control.do_inverse_mapping = !d["skip_inverse"].GetBool();
+   } else {
+      input_control.do_inverse_mapping = true;
+   }
+
 }
 
 size_t count_nevents_in_reference_file (const char *ref_file, int n_momenta, int filepos) {

@@ -887,18 +887,20 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
 
-   for (int c = 0; c < n_channels; c++) {
-      _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, prt_d, msq_d);
-   }
+   if (input_control.do_inverse_mapping) {
+      for (int c = 0; c < n_channels; c++) {
+         _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, prt_d, msq_d);
+      }
 
-   for (int c = 0; c < n_channels; c++) {
-      _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
-                                N_BRANCHES_INTERNAL, p_decay, local_factors_d);
-      _create_boosts_inv<<<nb,nt>>> (n_events, sqrts, c, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
-                                     msq_d, p_decay, Ld, local_factors_d);
-      _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
+      for (int c = 0; c < n_channels; c++) {
+         _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
+                                   N_BRANCHES_INTERNAL, p_decay, local_factors_d);
+         _create_boosts_inv<<<nb,nt>>> (n_events, sqrts, c, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
+                                        msq_d, p_decay, Ld, local_factors_d);
+         _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
+      }
+      printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
    }
-   printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
 
    START_TIMER(TIME_MEMCPY_OUT);
    // This can also be done on the device, primarily to avoid large temporary arrays.
