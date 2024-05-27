@@ -549,7 +549,8 @@ void init_msq_cpu (phs_prt_t *prt) {
 
 #define BYTES_PER_GB 1073741824
 void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x,
-                                        int n_channels, int *channels, size_t *n_oks, double *p_gpu, bool *oks_gpu,
+                                        int n_channels, int *channels, size_t *n_oks,
+                                        double *p_gpu, double *factors_gpu, bool *oks_gpu,
                                         FILE *fp) {
    double *p_decay = (double*)malloc(N_PRT * sizeof(double));
    double *msq = (double*)malloc(N_PRT * sizeof(double));
@@ -656,8 +657,14 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       ///   printf ("\n");
       ///}
 
-      if (ok) (*n_oks)++;
-      //printf ("i_event: %d / %d\n", i, n_events);
+      if (input_control.check_cpu && ok) {
+         for (int c = 0; c < n_channels; c++) {
+            if (fabs(all_factors[c] - factors_gpu[n_channels * i + c]) > epsilon) {
+               fprintf (fp, "Error in factor (event: %d, channel: %d): \n", i, c);
+               fprintf (fp, "GPU: %lf, CPU: %lf\n", factors_gpu[c], all_factors[c]);
+            } 
+         } 
+      }
   }
   //printf ("Event generation done\n");
   free (all_factors);

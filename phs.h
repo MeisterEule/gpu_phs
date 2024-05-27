@@ -75,7 +75,7 @@ void gen_phs_from_x_gpu (size_t n_events,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 
 void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x, int n_channels, int *channels,
-                                        size_t *n_ok, double *p_gpu, bool *oks_gpu, FILE *fp);
+                                        size_t *n_ok, double *p_gpu, double *factors_gpu, bool *oks_gpu, FILE *fp);
 
 
 
