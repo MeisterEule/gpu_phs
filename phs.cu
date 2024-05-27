@@ -145,6 +145,14 @@ __global__ void _init_fv (size_t N, double *factors, double *volumes, bool *oks)
   oks[tid] = true;
 }
 
+__global__ void _init_f (size_t N, double *factors) {
+  size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+  if (tid >= N) return;
+  for (size_t i = 0; i < DN_BRANCHES; i++) {
+     factors[DN_BRANCHES * tid + i] = 1;
+  }
+}
+
 __global__ void _set_device_constants (int _root_branch, int _n_in, int _n_out,
                                        int _n_prt, int _n_prt_out, int _prt_stride,
                                        int _n_branches, int _n_lambda_in, 
@@ -522,7 +530,7 @@ __global__ void _apply_msq_inv (size_t N, int channel, double *msq, double sqrts
      double x, f;
      mappings_d[channel].comp_msq_inv[branch_idx](msq[DN_BRANCHES * tid + branch_idx], m_min*m_min, m_max*m_max, sqrts*sqrts,
                                                   m, w, a, &x, &f);
-     factors[DN_BRANCHES * tid + branch_idx] *= f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2]; 
+     factors[DN_BRANCHES * tid + branch_idx] = f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2];
 
      double msq0 = msq[DN_BRANCHES * tid + branch_idx];
      double msq1 = msq[DN_BRANCHES * tid + k1];
@@ -740,7 +748,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    free(st);
 }                                  
 
-__global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_cmd,
+__global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_cmd, int *i_gather,
                                       double *Ld, double *msq, double *p_decay, double *prt) {
    size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
@@ -748,30 +756,37 @@ __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_c
    for (int c = 0; c < n_cmd; c++) {
       int boost_idx = cmd[2*n_cmd*channel + 2*c];
       int branch_idx = cmd[2*n_cmd*channel + 2*c + 1];
+      int prt_idx = i_gather[DN_BRANCHES * channel + branch_idx];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
       double E = sqrt(msq[DN_BRANCHES * tid + branch_idx] + p * p);
       for (int i = 0; i < 4; i++) {
-         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i] * E
-                                                      + Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i + 3] * p;
+         prt[DPRT_STRIDE * tid + 4 * prt_idx + i] = Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i] * E
+                                                  + Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i + 3] * p;
       }
    }
 }
 
-__global__ void _combine_particles (size_t N, int this_channel, int *channels, int *cmd, int n_cmd, double *prt, double *msq) {
+__global__ void _combine_particles (size_t N, int this_channel, int *channels, int *cmd, int n_cmd, int *i_gather, double *prt, double *msq) {
    size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
    if (this_channel == channels[tid]) return;
    for (int c = 0; c < n_cmd; c++) {
       int branch_idx = cmd[3*n_cmd*this_channel + 3*c + 2];
+      int prt_idx = i_gather[DN_BRANCHES * this_channel + branch_idx];
       int k1 = cmd[3*n_cmd*this_channel + 3*c];
+      k1 = i_gather[DN_BRANCHES * this_channel + k1];
       int k2 = cmd[3*n_cmd*this_channel + 3*c + 1];
+      k2 = i_gather[DN_BRANCHES * this_channel + k2];
       for (int i = 0; i < 4; i++) {
-         prt[DPART_STRIDE * tid + 4 * branch_idx + i] = prt[DPART_STRIDE * tid + 4 * k1 + i] + prt[DPART_STRIDE * tid + 4 * k2 + i];
+         prt[DPRT_STRIDE * tid + 4 * prt_idx + i] = prt[DPRT_STRIDE * tid + 4 * k1 + i] + prt[DPRT_STRIDE * tid + 4 * k2 + i];
       }
-      msq[DN_BRANCHES * tid + branch_idx] = prt[DPART_STRIDE * tid + 4 * branch_idx] * prt[DPART_STRIDE * tid + 4 * branch_idx]
-                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 1] * prt[DPART_STRIDE * tid + 4 * branch_idx + 1]
-                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 2] * prt[DPART_STRIDE * tid + 4 * branch_idx + 2]
-                                          - prt[DPART_STRIDE * tid + 4 * branch_idx + 3] * prt[DPART_STRIDE * tid + 4 * branch_idx + 3];
+   }
+   for (int branch_idx = 0; branch_idx < DN_BRANCHES; branch_idx++) {
+      int prt_idx = i_gather[DN_BRANCHES * this_channel + branch_idx];
+      msq[DN_BRANCHES * tid + branch_idx] = prt[DPRT_STRIDE * tid + 4 * prt_idx] * prt[DPRT_STRIDE * tid + 4 * prt_idx]
+                                          - prt[DPRT_STRIDE * tid + 4 * prt_idx + 1] * prt[DPRT_STRIDE * tid + 4 * prt_idx + 1]
+                                          - prt[DPRT_STRIDE * tid + 4 * prt_idx + 2] * prt[DPRT_STRIDE * tid + 4 * prt_idx + 2]
+                                          - prt[DPRT_STRIDE * tid + 4 * prt_idx + 3] * prt[DPRT_STRIDE * tid + 4 * prt_idx + 3];
    }
 }
 
@@ -797,8 +812,8 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 2 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
    double *prt_d;
-   cudaMalloc((void**)&prt_d, N_BRANCHES * n_events * 4 * sizeof(double));
-   cudaMemset (prt_d, 0, N_BRANCHES * n_events * 4 * sizeof(double));
+   cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
+   cudaMemset(prt_d, 0, N_PRT * n_events * 4 * sizeof(double));
 
    double *msq_d;
    cudaMalloc((void**)&msq_d, N_BRANCHES * n_events * sizeof(double)); 
@@ -882,7 +897,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    nt = input_control.ab_threads;
    nb = n_events / nt  + 1;
    START_TIMER(TIME_KERNEL_AB);
-   _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT,
+   _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT, i_gather_d,
                                     Ld, msq_d, p_decay, prt_d);
 
    cudaDeviceSynchronize();
@@ -890,7 +905,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    CHECK_CUDA_STATE(SAFE_CUDA_AB);
 
    if (input_control.do_inverse_mapping) {
-      _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, n_channels, local_factors_d, all_factors_d);
+      _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
    } else {
       ///_move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, DN_BRANCHES, local_factors_d, all_factors_d);
    }
@@ -898,30 +913,32 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    if (input_control.do_inverse_mapping) {
       for (int c = 0; c < n_channels; c++) {
-         _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, prt_d, msq_d);
-      }
-
-      for (int c = 0; c < n_channels; c++) {
+         _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, i_gather_d, prt_d, msq_d);
+         _init_f<<<nb,nt>>>(n_events, local_factors_d);
+         cudaDeviceSynchronize();
          _apply_msq_inv<<<nb,nt>>>(n_events, c, msq_d, sqrts, channels_d, cmds_msq_d,
                                    N_BRANCHES_INTERNAL, p_decay, local_factors_d);
+         cudaDeviceSynchronize();
          _create_boosts_inv<<<nb,nt>>> (n_events, sqrts, c, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
                                         msq_d, p_decay, Ld, local_factors_d);
+         cudaDeviceSynchronize();
          _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
+         cudaDeviceSynchronize();
       }
       printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
    }
 
    START_TIMER(TIME_MEMCPY_OUT);
    // This can also be done on the device, primarily to avoid large temporary arrays.
-   double *copy = (double*)malloc(4 * N_BRANCHES * n_events * sizeof(double));
-   cudaMemcpy (copy, prt_d, 4 * N_BRANCHES * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+   double *copy = (double*)malloc(4 * N_PRT * n_events * sizeof(double));
+   cudaMemcpy (copy, prt_d, 4 * N_PRT * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (size_t i = 0; i < n_events; i++) {
       int c = channels[i];
       for (int j = 0; j < N_EXT_OUT; j++) {
-         p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 0];
-         p_h[4*N_EXT_OUT*i + 4*j + 1] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 1];
-         p_h[4*N_EXT_OUT*i + 4*j + 2] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 2];
-         p_h[4*N_EXT_OUT*i + 4*j + 3] = copy[4*N_BRANCHES*i + 4*i_scatter[c][j] + 3];
+         p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_PRT*i + 4*i_gather[c][j] + 0];
+         p_h[4*N_EXT_OUT*i + 4*j + 1] = copy[4*N_PRT*i + 4*i_gather[c][j] + 1];
+         p_h[4*N_EXT_OUT*i + 4*j + 2] = copy[4*N_PRT*i + 4*i_gather[c][j] + 2];
+         p_h[4*N_EXT_OUT*i + 4*j + 3] = copy[4*N_PRT*i + 4*i_gather[c][j] + 3];
       }
    }
 

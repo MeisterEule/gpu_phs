@@ -437,11 +437,11 @@ void get_angles_cpu (int channel, int branch_idx,
    if (has_children[channel][k2]) get_angles_cpu (channel, k2, s, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
 }
 
-void combine_particles_cpu (int channel, int branch_idx, phs_prt_t *prt) {
+void combine_particles_cpu (int i_event, int channel, int branch_idx, phs_prt_t *prt) {
    int k1 = daughters1[channel][branch_idx];
    int k2 = daughters2[channel][branch_idx];
-   if (has_children[channel][k1]) combine_particles_cpu (channel, k1, prt);
-   if (has_children[channel][k2]) combine_particles_cpu (channel, k2, prt);
+   if (has_children[channel][k1]) combine_particles_cpu (i_event, channel, k1, prt);
+   if (has_children[channel][k2]) combine_particles_cpu (i_event, channel, k2, prt);
    for (int i = 0; i < 4; i++) {
       prt[branch_idx].p[i] = prt[k1].p[i] + prt[k2].p[i];
    }
@@ -626,17 +626,17 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       }
       if (ok) (*n_oks)++;
 
-      //for (int j = 0; j < N_PRT; j++) {
-      //   if (msq[j] < 0) {
-      //      msq[j] = prt[j].p[0]*prt[j].p[0] - prt[j].p[1]*prt[j].p[1]
-      //             - prt[j].p[2]*prt[j].p[2] - prt[j].p[3]*prt[j].p[3];   
-      //      if (i == 0) printf ("Set msq[%d]: %lf\n", j, msq[j]);
-      //   }
-      //}
+      for (int j = 0; j < N_PRT; j++) {
+         if (msq[j] < 0) {
+            msq[j] = prt[j].p[0]*prt[j].p[0] - prt[j].p[1]*prt[j].p[1]
+                   - prt[j].p[2]*prt[j].p[2] - prt[j].p[3]*prt[j].p[3];   
+            ///if (i == 0) printf ("Set msq[%d]: %lf\n", j, msq[j]);
+         }
+      }
       if (input_control.do_inverse_mapping) {
          for (int c = 0; c < n_channels; c++) {
             if (c == this_channel) continue;
-            combine_particles_cpu (c, ROOT_BRANCH, prt);
+            combine_particles_cpu (i, c, ROOT_BRANCH, prt);
          }
 
          for (int c = 0; c < n_channels; c++) {
