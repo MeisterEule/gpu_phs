@@ -181,7 +181,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    FILE *fp = fopen ("compare.gpu_cpu", "w+");
    t1 = mysecond();
-   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, n_channels, channels, &n_ok, p_gpu, oks_gpu, fp);
+   gen_phs_from_x_cpu_time_and_check (sqrts, n_events, n_x, x, n_channels, channels, &n_ok, p_gpu, factors_gpu, oks_gpu, fp);
    t2 = mysecond();
    printf ("CPU: %lf sec\n", t2 - t1);
    printf ("Valid events: %ld / %ld (%.2lf%%)\n", n_ok, n_events, (double)n_ok / n_events * 100);

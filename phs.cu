@@ -934,11 +934,13 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaMemcpy (copy, prt_d, 4 * N_PRT * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (size_t i = 0; i < n_events; i++) {
       int c = channels[i];
+      int idx = 1;
       for (int j = 0; j < N_EXT_OUT; j++) {
-         p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_PRT*i + 4*i_gather[c][j] + 0];
-         p_h[4*N_EXT_OUT*i + 4*j + 1] = copy[4*N_PRT*i + 4*i_gather[c][j] + 1];
-         p_h[4*N_EXT_OUT*i + 4*j + 2] = copy[4*N_PRT*i + 4*i_gather[c][j] + 2];
-         p_h[4*N_EXT_OUT*i + 4*j + 3] = copy[4*N_PRT*i + 4*i_gather[c][j] + 3];
+         p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_PRT*i + 4*(idx-1) + 0];
+         p_h[4*N_EXT_OUT*i + 4*j + 1] = copy[4*N_PRT*i + 4*(idx-1) + 1];
+         p_h[4*N_EXT_OUT*i + 4*j + 2] = copy[4*N_PRT*i + 4*(idx-1) + 2];
+         p_h[4*N_EXT_OUT*i + 4*j + 3] = copy[4*N_PRT*i + 4*(idx-1) + 3];
+         idx *= 2;
       }
    }
 
