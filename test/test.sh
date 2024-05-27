@@ -54,6 +54,9 @@ for t in $testcases; do
    fi
 done
 
+echo "INTERNAL: " >> summary.log
+grep Failed\ events *.gpu >> summary.log
+
 echo "CHECK INTERNALLY AGAINST CPU IMPLEMENTATION"
 for t in $testcases; do
    sed -i 's/whizard/internal/g' $t.json
@@ -64,5 +67,5 @@ for t in $testcases; do
 
 done
 
-grep Failed\ events *.gpu > summary.log
+echo "EXTERNAL: " >> summary.log
 grep Failed\ events *.gpu_cpu >> summary.log
