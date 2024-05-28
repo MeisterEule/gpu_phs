@@ -906,12 +906,7 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    if (input_control.do_inverse_mapping) {
       _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
-   } else {
-      ///_move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, DN_BRANCHES, local_factors_d, all_factors_d);
-   }
-   cudaDeviceSynchronize();
-
-   if (input_control.do_inverse_mapping) {
+      cudaDeviceSynchronize();
       for (int c = 0; c < n_channels; c++) {
          _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, i_gather_d, prt_d, msq_d);
          _init_f<<<nb,nt>>>(n_events, local_factors_d);

@@ -45,7 +45,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
       channels[i] = c;
    }
 
-   size_t mem_gpu = required_gpu_mem (n_events, n_x);
+   size_t mem_gpu = required_gpu_mem (n_events, n_x, n_channels);
    size_t mem_cpu = required_cpu_mem (n_events, n_x);
    printf ("Perform Whizard crosscheck with %ld events (%ld per channel):\n", n_events, n_events / n_channels);
    printf ("Required GPU memory: %lf GiB\n", (double)mem_gpu / BYTES_PER_GB);
@@ -155,7 +155,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    // Now do the real time measurement with the adapted grids
    printf ("Perform optimized GPU run with %ld events (%ld per channel):\n", n_events, n_events_per_channel);
-   printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem ((size_t)n_events, n_x) / BYTES_PER_GB);
+   printf ("Required GPU memory: %lf GiB\n", (double)required_gpu_mem ((size_t)n_events, n_x, n_channels) / BYTES_PER_GB);
    printf ("Required CPU memory: %lf GiB\n", (double)required_cpu_mem ((size_t)n_events, n_x) / BYTES_PER_GB);
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
