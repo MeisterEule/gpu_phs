@@ -209,7 +209,7 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
 }
 
 void read_reference_momenta (const char *ref_file, int filepos,
-                             int n_momenta, int n_x, double *x,
+                             int n_channels, int n_momenta, int n_x, double *x,
                              int *channel_lims, phs_val_t *p) {
    std::ifstream reader (ref_file);
    std::string line; 
@@ -256,20 +256,26 @@ void read_reference_momenta (const char *ref_file, int filepos,
                ss >> p[i_event].prt[i].p[j];
             }
          } 
-         // Factor & Volume
+         // Volume
          ss.clear();
-         ss.str(linebatch.front()); 
+         ss.str(linebatch.front());
          linebatch.pop();
-         ss >> p[i_event].f;
-         ss.clear();
-         ss.str(linebatch.front()); 
-         linebatch.pop();
+         ss >> id;
          ss >> p[i_event].v;
-         // OKAY
+         // Okay
+         ss.clear();
+         ss.str(linebatch.front());
+         linebatch.pop();
+         ss >> id;
+         ss >> p[i_event].ok;
+         // Factors
          ss.clear();
          ss.str(linebatch.front()); 
          linebatch.pop();
-         ss >> p[i_event].ok;
+         ss >> id;
+         for (int c = 0; c < n_channels; c++) {
+            ss >> p[i_event].factors[c];
+         }
       }
       counter++;
    }

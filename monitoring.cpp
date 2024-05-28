@@ -30,7 +30,7 @@ void final_monitoring () {
    }
 }
 
-void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
+void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channels,
                              phs_val_t *pval,
                              double *pgen, double *factors, double *volumes) {
    int n_events_failed = 0;
@@ -57,8 +57,10 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
             }
          }
   
-         if (fabs (pval[i].f - factors[i]) > epsilon) {
-            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
+         double gpu_factor = factors[n_channels * i + c];
+         double ref_factor = pval[i].factors[c];
+         if (fabs (gpu_factor - ref_factor) > epsilon) {
+            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, ref_factor, gpu_factor);
             n_events_failed++;
          }
 
@@ -82,13 +84,14 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int *channels,
 }
 
 void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
-                             int *channels, phs_val_t *pval,
+                             int n_channels, int *channels, phs_val_t *pval,
                              phs_prt_t *prt, double *factors, double *volumes) {
    int n_events_failed = 0;
    double epsilon = input_control.compare_tolerance;
    double max_abs_deviation[4] = {0, 0, 0, 0};
    double sum_abs_deviation[4] = {0, 0, 0, 0};
    for (int i = 0; i < n_events_val; i++) {
+      int c = channels[i];
       for (int n = 0; n < N_EXT_OUT; n++) {
          double *p = pval[i].prt[N_EXT_IN+n].p;
          int nn = pow(2,n) - 1;
@@ -96,7 +99,7 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
           || fabs (p[1] - prt[N_PRT*i + nn].p[1]) > epsilon
           || fabs (p[2] - prt[N_PRT*i + nn].p[2]) > epsilon
           || fabs (p[3] - prt[N_PRT*i + nn].p[3]) > epsilon) {
-               fprintf (fp, "Error in p%d (event: %d, channel: %d):\n", n, i, channels[i]);
+               fprintf (fp, "Error in p%d (event: %d, channel: %d):\n", n, i, c);
                fprintf (fp, "Validation: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
                fprintf (fp, "Generated:  %lf %lf %lf %lf\n", prt[N_PRT*i + nn].p[0], prt[N_PRT*i + nn].p[1],
                                                         prt[N_PRT*i + nn].p[2], prt[N_PRT*i + nn].p[3]);
@@ -108,8 +111,10 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                n_events_failed++;
          }
 
-         if (fabs (pval[i].f - factors[i]) > epsilon) {
-            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].f, factors[i]);
+         double cpu_factor = factors[n_channels * i + c];
+         double ref_factor = pval[i].factors[c];
+         if (fabs (ref_factor - cpu_factor) > epsilon) {
+            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, ref_factor, cpu_factor);
             n_events_failed++;
          }
 

@@ -30,12 +30,13 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    phs_val_t *pval = (phs_val_t*)malloc(n_events * sizeof (phs_val_t));
    for (size_t i = 0; i < n_events; i++) {
       pval[i].prt = (phs_prt_t*)malloc(N_EXT_TOT * sizeof(phs_prt_t));
+      pval[i].factors = (double*)malloc(n_channels * sizeof(double));
    }
 
    int *channel_lims = (int*)malloc((n_channels + 1) * sizeof(int));
    channel_lims[0] = 0;
    channel_lims[n_channels] = n_events;
-   read_reference_momenta (ref_file, filepos_start_mom, N_EXT_TOT, n_x, x, channel_lims, pval);
+   read_reference_momenta (ref_file, filepos_start_mom, n_channels, N_EXT_TOT, n_x, x, channel_lims, pval);
 
    int *channels = (int*)malloc(n_events * sizeof(int));
    int c = 0;
@@ -77,7 +78,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
 
 
    FILE *fp = fopen ("compare.gpu", "w+");
-   compare_phs_gpu_vs_ref (fp, n_events, channels, pval, p, factors, volumes);
+   compare_phs_gpu_vs_ref (fp, n_events, n_channels, channels, pval, p, factors, volumes);
    fclose(fp);
    fp = NULL;
 

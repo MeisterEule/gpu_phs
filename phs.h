@@ -31,7 +31,7 @@ typedef struct {
 
 typedef struct {
    phs_prt_t *prt;
-   double f;
+   double *factors;
    double v;
    int ok;
 } phs_val_t;
