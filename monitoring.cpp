@@ -65,7 +65,7 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channe
          }
 
          if (fabs (pval[i].v - volumes[i]) > epsilon) {
-            fprintf (fp, "Error in factor (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
+            fprintf (fp, "Error in volume (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
             n_events_failed++;
          }
       } else if (contains_friends[c] == 1) {

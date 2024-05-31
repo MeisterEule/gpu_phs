@@ -80,9 +80,9 @@ void mapping_x_from_msq_cpu (int type, double s, double m, double w, double msq,
       case MAP_COLLINEAR:
       case MAP_INFRARED:
       case MAP_RADIATION:
-         msq0 = msq - msq_min + a[0];
-         *x = log (msq0 / a[0]) / a[1];
-         *factor = a[2] * msq0;
+         tmp = msq - msq_min + a[0];
+         *x = log (tmp / a[0]) / a[1];
+         *factor = a[2] * tmp;
          break;
       case MAP_TCHANNEL:
       case MAP_UCHANNEL:
@@ -281,7 +281,7 @@ void get_msq_cpu (int i_event, int channel, int branch_idx, double m_tot, phs_pr
    }
 }
 
-void set_angles_cpu (int channel, int branch_idx,
+void set_angles_cpu (int i_event, int channel, int branch_idx,
                      double *x, size_t *idx_x, double s, double *factor,
                      double *p_decay, phs_prt_t *prt, double L0[4][4]) {
    double p = p_decay[branch_idx];
@@ -340,8 +340,8 @@ void set_angles_cpu (int channel, int branch_idx,
          }
       }
 
-      set_angles_cpu (channel, k1, x, idx_x, s, factor, p_decay, prt, L_new);
-      set_angles_cpu (channel, k2, x, idx_x, s, factor, p_decay, prt, L_new);
+      set_angles_cpu (i_event, channel, k1, x, idx_x, s, factor, p_decay, prt, L_new);
+      set_angles_cpu (i_event, channel, k2, x, idx_x, s, factor, p_decay, prt, L_new);
    }
 }
 
@@ -355,7 +355,7 @@ void polar_angle_ct_cpu (double n[3], double *ct, double *st) {
    *st = sqrt(1 - (*ct)*(*ct));
 }
 
-void get_angles_cpu (int channel, int branch_idx,
+void get_angles_cpu (int i_event, int channel, int branch_idx,
                 double s, double *p_decay, phs_prt_t *prt,  
                 double L0[4][4], double *phi0, double *ct0, double *st0, double *x, double *factor) {
    int k1 = daughters1[channel][branch_idx];
@@ -433,8 +433,8 @@ void get_angles_cpu (int channel, int branch_idx,
       L_new[3][0] = -bg;
       L_new[3][3] = gamma;
    }
-   if (has_children[channel][k1]) get_angles_cpu (channel, k1, s, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
-   if (has_children[channel][k2]) get_angles_cpu (channel, k2, s, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
+   if (has_children[channel][k1]) get_angles_cpu (i_event, channel, k1, s, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
+   if (has_children[channel][k2]) get_angles_cpu (i_event, channel, k2, s, p_decay, prt, L_new, &phi, &ct, &st, x, factor);
 }
 
 void combine_particles_cpu (int i_event, int channel, int branch_idx, phs_prt_t *prt) {
@@ -594,7 +594,7 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       double m_tot = mappings_host[this_channel].mass_sum[ROOT_BRANCH];
       set_msq_cpu (this_channel, ROOT_BRANCH, m_tot, x + n_x * i, &id_x, sqrts, prt, &factor, &volume, &ok, p_decay); 
       if (ok) {
-         set_angles_cpu (this_channel, ROOT_BRANCH, x + n_x * i, &id_x, sqrts * sqrts, &factor, p_decay, prt, L0);
+         set_angles_cpu (i, this_channel, ROOT_BRANCH, x + n_x * i, &id_x, sqrts * sqrts, &factor, p_decay, prt, L0);
       } else {
         //printf ("Not ok CPU: %d\n", i);
       }
@@ -645,7 +645,7 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
             m_tot = mappings_host[c].mass_sum[ROOT_BRANCH];
             double x, factor;
             get_msq_cpu (i, c, ROOT_BRANCH, m_tot, prt, sqrts, p_decay, &x, &factor);
-            get_angles_cpu (c, ROOT_BRANCH, sqrts*sqrts, p_decay, prt, L0, NULL, NULL, NULL, &x, &factor);
+            get_angles_cpu (i, c, ROOT_BRANCH, sqrts*sqrts, p_decay, prt, L0, NULL, NULL, NULL, &x, &factor);
             all_factors[c] = factor;
          }
       }
