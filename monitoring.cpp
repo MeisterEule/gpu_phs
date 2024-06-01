@@ -57,12 +57,14 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channe
             }
          }
   
-         for (int oc = 0; oc < n_channels; oc++) {
-            double gpu_factor = factors[n_channels * i + oc];
-            double ref_factor = pval[i].factors[oc];
-            if (fabs (gpu_factor - ref_factor) > epsilon && !contains_friends[oc]) {
-               fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, gpu_factor);
-               n_events_failed++;
+         if (input_control.do_inverse_mapping) {
+            for (int oc = 0; oc < n_channels; oc++) {
+               double gpu_factor = factors[n_channels * i + oc];
+               double ref_factor = pval[i].factors[oc];
+               if (fabs (gpu_factor - ref_factor) > epsilon && !contains_friends[oc]) {
+                  fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, gpu_factor);
+                  n_events_failed++;
+               }
             }
          }
 
@@ -113,12 +115,14 @@ void compare_phs_cpu_vs_ref (FILE *fp, int n_events_val, int n_events_gen,
                n_events_failed++;
          }
 
-         for (int oc = 0; oc < n_channels; oc++) {
-            double cpu_factor = factors[n_channels * i + oc];
-            double ref_factor = pval[i].factors[oc];
-            if (fabs (ref_factor - cpu_factor) > epsilon) {
-               fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, cpu_factor);
-               n_events_failed++;
+         if (input_control.do_inverse_mapping) {
+            for (int oc = 0; oc < n_channels; oc++) {
+               double cpu_factor = factors[n_channels * i + oc];
+               double ref_factor = pval[i].factors[oc];
+               if (fabs (ref_factor - cpu_factor) > epsilon) {
+                  fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, cpu_factor);
+                  n_events_failed++;
+               }
             }
          }
 
