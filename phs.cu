@@ -720,7 +720,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
      double py = -sp0  * p1[1] + cp0 * p1[2];
      n[0] = ct0 * px - st0 * p1[3];
      n[1] = py;
-     n[2] = st0 * px + ct0 * p1[3];
+     n[2] = -st0 * px + ct0 * p1[3];
      gamma = sqrt(1 + bg*bg);
      n[2] = n[2] * gamma - p1[0] * bg;
      phi[boost_idx] = azimuthal_angle(n);
