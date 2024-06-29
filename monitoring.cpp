@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <cmath>
 
+#include "global_phs.h"
 #include "monitoring.h"
 #include "file_input.h"
 

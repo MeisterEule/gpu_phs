@@ -8,6 +8,7 @@
 #include "rapidjson/stringbuffer.h"
 
 #include "phs.h"
+#include "global_phs.h"
 #include "file_input.h"
 
 input_control_t input_control;
@@ -69,23 +70,23 @@ void read_input_json (const char *filename) {
 
    if (d.HasMember("msq")) {
       assert (d["msq"]["threads"].IsInt());
-      input_control.msq_threads = d["msq"]["threads"].GetInt();
+      kernel_control.msq_threads = d["msq"]["threads"].GetInt();
    } else {
-      input_control.msq_threads = NTHREADS_DEFAULT;
+      kernel_control.msq_threads = NTHREADS_DEFAULT;
    } 
 
    if (d.HasMember("create_boosts")) {
       assert (d["create_boosts"]["threads"].IsInt());
-      input_control.cb_threads = d["create_boosts"]["threads"].GetInt();
+      kernel_control.cb_threads = d["create_boosts"]["threads"].GetInt();
    } else {
-      input_control.cb_threads = NTHREADS_DEFAULT;
+      kernel_control.cb_threads = NTHREADS_DEFAULT;
    } 
 
    if (d.HasMember("apply_boosts")) {
       assert (d["apply_boosts"]["threads"].IsInt());
-      input_control.ab_threads = d["apply_boosts"]["threads"].GetInt();
+      kernel_control.ab_threads = d["apply_boosts"]["threads"].GetInt();
    } else {
-      input_control.ab_threads = NTHREADS_DEFAULT;
+      kernel_control.ab_threads = NTHREADS_DEFAULT;
    } 
 
    if (d.HasMember("check_cpu")) {

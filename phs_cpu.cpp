@@ -3,12 +3,11 @@
 #include <algorithm>
 
 #include "phs.h"
+#include "global_phs.h"
 #include "mappings.h"
 #include "file_input.h"
 
 #define MAP_INV_MASS 10
-
-mapping_t *mappings_host = NULL;
 
 void mapping_msq_from_x_cpu (int type, double x, double s, double m, double w, double msq_min, double msq_max, double *a, double *msq, double *factor) {
    double msq1;

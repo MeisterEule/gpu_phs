@@ -4,24 +4,9 @@
 #include <cstring>
 
 #include "phs.h"
+#include "global_phs.h"
 #include "monitoring.h"
 #include "file_input.h"
-
-int N_EXT_IN = 0;
-int N_EXT_OUT = 0;
-int N_EXT_TOT = 0;
-
-int N_PRT = 0;
-int N_PRT_IN = 0;
-int N_PRT_OUT = 0;
-int PRT_STRIDE = 0;
-int ROOT_BRANCH = 0;
-int N_BRANCHES = 0;
-int N_BRANCHES_INTERNAL = 0;
-int N_MSQ = 0;
-int N_BOOSTS = 0;
-int N_LAMBDA_IN = 0;
-int N_LAMBDA_OUT = 0; 
 
 __device__ int DN_EXT_IN;
 __device__ int DN_EXT_OUT;
@@ -288,12 +273,12 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
            i_gather[c][i_part++] = d1[c][i] - 1;
            i_gather[c][i_part++] = d2[c][i] - 1;
          }
-      }  
-      fprintf (logfl[LOG_INPUT], "i_gather[%d]: ", c);
-      for (int i = 0; i < N_BRANCHES; i++) {
-         fprintf (logfl[LOG_INPUT], "%d ", i_gather[c][i]);
-      } 
-      fprintf (logfl[LOG_INPUT], "\n");
+      }
+      ///fprintf (logfl[LOG_INPUT], "i_gather[%d]: ", c);
+      ///for (int i = 0; i < N_BRANCHES; i++) {
+      ///   fprintf (logfl[LOG_INPUT], "%d ", i_gather[c][i]);
+      ///} 
+      ///fprintf (logfl[LOG_INPUT], "\n");
    }
 
    i_scatter = (int**)malloc(n_channels * sizeof(int*));
@@ -312,11 +297,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
    }
 
    for (int c = 0; c < n_channels; c++) {
-      fprintf (logfl[LOG_INPUT], "i_scatter[%d]: ", c);
-      for (int i = 0; i < N_EXT_OUT; i++) {
-         fprintf (logfl[LOG_INPUT], "%d ", i_scatter[c][i]);
-      } 
-      fprintf (logfl[LOG_INPUT], "\n");
+      ///fprintf (logfl[LOG_INPUT], "i_scatter[%d]: ", c);
+      ///for (int i = 0; i < N_EXT_OUT; i++) {
+      ///   fprintf (logfl[LOG_INPUT], "%d ", i_scatter[c][i]);
+      ///} 
+      ///fprintf (logfl[LOG_INPUT], "\n");
    }
 
    cmd_msq = (int*)malloc(3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
@@ -348,12 +333,12 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
 
 
    for (int c = 0; c < n_channels; c++) {
-      fprintf (logfl[LOG_INPUT], "Channel: %d\n", c);
-      for (int cc = 0; cc < N_BRANCHES_INTERNAL; cc++) {
-         fprintf (logfl[LOG_INPUT], "%d %d -> %d\n", cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 0],
-                                     cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 1],
-                                     cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 2]);
-      }
+      ///fprintf (logfl[LOG_INPUT], "Channel: %d\n", c);
+      ///for (int cc = 0; cc < N_BRANCHES_INTERNAL; cc++) {
+      ///   fprintf (logfl[LOG_INPUT], "%d %d -> %d\n", cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 0],
+      ///                               cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 1],
+      ///                               cmd_msq[3*N_BRANCHES_INTERNAL*c + 3*cc + 2]);
+      ///}
    }
 
    cudaDeviceSynchronize();
@@ -401,11 +386,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
       } else {
       }
 
-      fprintf (logfl[LOG_INPUT], "N_LAMBDA_IN: %d, cmd_origin.size(): %ld\n", N_LAMBDA_IN, cmd_origin.size());
-      fprintf (logfl[LOG_INPUT], "Origins[%d]\n", c);
-      for (boost_cmd_t b : cmd_origin) {
-        fprintf (logfl[LOG_INPUT], "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
-      }
+      ///fprintf (logfl[LOG_INPUT], "N_LAMBDA_IN: %d, cmd_origin.size(): %ld\n", N_LAMBDA_IN, cmd_origin.size());
+      ///fprintf (logfl[LOG_INPUT], "Origins[%d]\n", c);
+      ///for (boost_cmd_t b : cmd_origin) {
+      ///  fprintf (logfl[LOG_INPUT], "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
+      ///}
 
 
       for (int i = 0; i < N_LAMBDA_IN; i++) {
@@ -434,6 +419,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
         cmd_boost_t[3*N_LAMBDA_OUT*c + 3*i + 2] = cmd_target[i].b[2];
      }
   }
+  printf ("CudaError Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 }
 
 __global__ void _init_msq (size_t N, int n_channels, int *channels,
@@ -819,7 +805,7 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaMalloc((void**)&cmds_boost_t_d, 3 * n_channels * N_LAMBDA_OUT * sizeof(int));
    cudaMemcpy(cmds_msq_d, cmd_msq, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int), cudaMemcpyHostToDevice);
    cudaMemcpy(cmds_boost_o_d, cmd_boost_o, 3 * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 3 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 2 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
    double *prt_d;
    cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
@@ -860,9 +846,10 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_INIT);
 
-   CHECK_CUDA_STATE(SAFE_CUDA_INIT);
+   ///CHECK_CUDA_STATE(SAFE_CUDA_INIT);
 
-   int nt = input_control.msq_threads;
+
+   int nt = kernel_control.msq_threads;
    int nb = n_events / nt + 1;
 
    int *tmp, *i_gather_d;
@@ -892,9 +879,9 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_MSQ);
 
-   CHECK_CUDA_STATE(SAFE_CUDA_MSQ);
+   ///CHECK_CUDA_STATE(SAFE_CUDA_MSQ);
 
-   nt = input_control.cb_threads;
+   nt = kernel_control.cb_threads;
    nb = n_events / nt  + 1;
    START_TIMER(TIME_KERNEL_CB);
    _create_boosts<<<nb,nt>>>(n_events, sqrts, channels_d, cmds_boost_o_d, N_LAMBDA_IN,
@@ -902,9 +889,9 @@ void gen_phs_from_x_gpu (size_t n_events,
 
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_CB);
-   CHECK_CUDA_STATE(SAFE_CUDA_CB);
+   ///CHECK_CUDA_STATE(SAFE_CUDA_CB);
 
-   nt = input_control.ab_threads;
+   nt = kernel_control.ab_threads;
    nb = n_events / nt  + 1;
    START_TIMER(TIME_KERNEL_AB);
    _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT, i_gather_d,
@@ -930,7 +917,6 @@ void gen_phs_from_x_gpu (size_t n_events,
          _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
          cudaDeviceSynchronize();
       }
-      printf ("Apply Inverse: %s\n", cudaGetErrorString(cudaGetLastError()));
    }
 
    START_TIMER(TIME_MEMCPY_OUT);

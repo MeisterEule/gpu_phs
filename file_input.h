@@ -18,9 +18,6 @@ typedef struct {
   int warmup_events;
   size_t internal_events;
   size_t gpu_memory;
-  int msq_threads;
-  int cb_threads;
-  int ab_threads; 
   bool check_cpu;
   double compare_tolerance;
   bool do_inverse_mapping;
