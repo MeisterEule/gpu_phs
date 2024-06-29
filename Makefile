@@ -20,6 +20,7 @@ bin_sources = main.o \
               global_phs.o 
 
 lib_sources = monitoring.o \
+              file_input.o \
               phs.o \
               global_phs.o \
               whizard_gpu_phs.o
