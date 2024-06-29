@@ -644,11 +644,9 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    if (tid >= N) return;
    if (channel == channels[tid]) return;
 
-   ///int branch_idx = cmd[2*n_cmd*channel + 2*0 + 1];
    int branch_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 1];
    int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
-   //int branch_idx = cb_cmd[3*n_cb_cmd*channel + 3*0];
    int boost_idx = cb_cmd[3*n_cb_cmd*channel + 3*0 + 1];
    int parent_boost = cb_cmd[3*n_cb_cmd*channel + 3*0 + 2];
    double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
@@ -660,7 +658,6 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    n[1] = prt[DPRT_STRIDE * tid + 4 * prt_idx + 2];
    n[2] = prt[DPRT_STRIDE * tid + 4 * prt_idx + 3];
    double gamma = sqrt(1 + bg * bg);
-   //n[2] = n[2] * gamma + p_mag[DN_BRANCHES * tid + branch_idx] * bg;
    n[2] = n[2] * gamma + prt[DPRT_STRIDE * tid + + 4 * prt_idx] * bg;
    
 
@@ -966,7 +963,6 @@ void gen_phs_from_x_gpu (size_t n_events,
          factors_h[i] = copy[N_BRANCHES*i];
       }
    }
-   printf ("First factors: %lf %lf %lf\n", factors_h[0], factors_h[1], factors_h[2]);
 
    free(copy);
    copy = (double*)malloc(N_BRANCHES * n_events * sizeof(double));
