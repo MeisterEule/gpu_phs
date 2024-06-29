@@ -1,6 +1,8 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <iostream>
+#include <queue>
 
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
@@ -26,10 +28,16 @@ void read_input_json (const char *filename) {
 
    bool verify_whizard;
    if (d.HasMember("verify")) {
-      assert (d["verify"].IsString());
-      verify_whizard = !strcmp(d["verify"].GetString(), "whizard");
+      assert (d["verify"]["against"].IsString());
+      verify_whizard = !strcmp(d["verify"]["against"].GetString(), "whizard");
+      if (d["verify"].HasMember("epsilon")) {
+         input_control.compare_tolerance = d["verify"]["epsilon"].GetDouble();
+      } else {
+         input_control.compare_tolerance = DEFAULT_COMPARE_EPSILON;
+      }
    } else {
       verify_whizard = true;
+      input_control.compare_tolerance = DEFAULT_COMPARE_EPSILON;
    }
 
    if (!verify_whizard) {
@@ -99,13 +107,18 @@ size_t count_nevents_in_reference_file (const char *ref_file, int n_momenta, int
    while (getline (reader, line)) {
       n_lines++;
    }
-   // Subtract the first five header lines
+   // Each phase space point has, regardless of process, five additional lines:
+   // factor, volume, channel, ???, and random numbers. 
    int n_lines_per_batch = n_momenta + 5;
    return n_lines / n_lines_per_batch;
 }
 
-void read_reference_header (const char *ref_file, int *header_data, int *filepos) {
+int read_reference_header (const char *ref_file, int *header_data, int *filepos) {
    std::ifstream reader (ref_file);
+   if (!reader) {
+      printf ("Error: Reference file %s does not exist\n", ref_file);    
+      return 0;
+   }
    std::string line; 
    std::string dummy;
 
@@ -117,6 +130,7 @@ void read_reference_header (const char *ref_file, int *header_data, int *filepos
       c++;
       *filepos = reader.tellg();
    }
+   return 1;
 }
 
 void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_prt_out, int n_external, int *filepos) {
@@ -194,7 +208,7 @@ void read_reference_momenta (const char *ref_file, int filepos,
    std::ifstream reader (ref_file);
    std::string line; 
    int n_lines_per_batch = 5 + n_momenta; // channel + random numbers + factors + volumes + nm * Momenta + ok
-   std::string *linebatch = (std::string*)malloc(n_lines_per_batch * sizeof(std::string));
+   std::queue<std::string> linebatch;
    reader.seekg(filepos, reader.beg);
 
    int counter = 0;
@@ -206,12 +220,12 @@ void read_reference_momenta (const char *ref_file, int filepos,
    int i_event = 0;
    while (getline (reader, line)) {
       int c = counter % n_lines_per_batch;
-      linebatch[c] = line; 
+      linebatch.push(line);
       if (c == n_lines_per_batch - 1) {
          int i_event = counter / n_lines_per_batch;
          std::stringstream ss;
-         ss.str(linebatch[0]);
-         // Channel ID
+         ss.str(linebatch.front());
+         linebatch.pop();
          ss >> id;
          ss >> channel;
          if (channel != current_channel) {
@@ -219,7 +233,8 @@ void read_reference_momenta (const char *ref_file, int filepos,
              current_channel++;
          }
          ss.clear();
-         ss.str(linebatch[1]);
+         ss.str(linebatch.front());
+         linebatch.pop();
          ss >> id;
          // Random numbers
          for (int i = 0; i < n_x; i++) {
@@ -228,21 +243,26 @@ void read_reference_momenta (const char *ref_file, int filepos,
          // Momenta
          for (int i = 0; i < n_momenta; i++) {
             ss.clear();
-            ss.str(linebatch[2 + i]);
+            ss.str(linebatch.front());
+            linebatch.pop();
+ 
             for (int j = 0; j < 4; j++) {
                ss >> p[i_event].prt[i].p[j];
             }
          } 
          // Factor & Volume
          ss.clear();
-         ss.str(linebatch[2 + n_momenta]); 
+         ss.str(linebatch.front()); 
+         linebatch.pop();
          ss >> p[i_event].f;
          ss.clear();
-         ss.str(linebatch[2 + n_momenta + 1]); 
+         ss.str(linebatch.front()); 
+         linebatch.pop();
          ss >> p[i_event].v;
          // OKAY
          ss.clear();
-         ss.str(linebatch[2 + n_momenta + 2]); 
+         ss.str(linebatch.front()); 
+         linebatch.pop();
          ss >> p[i_event].ok;
       }
       counter++;

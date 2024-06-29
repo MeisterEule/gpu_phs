@@ -337,6 +337,11 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
    L0[3][3] = 1;
 
    *n_oks = 0;
+   int n_events_failed = 0;
+   double epsilon = input_control.compare_tolerance;
+   double max_abs_deviation[4] = {0, 0, 0, 0};
+   double sum_abs_deviation[4] = {0, 0, 0, 0};
+
    for (size_t i = 0; i < n_events; i++) {
       ok = true;
       int c = channels[i];
@@ -355,27 +360,41 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
       // The runtime check does not have a large impact on the measured time, but it is observable.
       // With this flag, we can switch it off to get the most reliable result.
       // That one if statement which remains does not make a difference.
+
       if (input_control.check_cpu && ok) {
          for (int n = 0; n < N_EXT_OUT; n++) {
             double *p = &p_gpu[4*N_EXT_OUT*i + 4*n];
             int nn = pow(2,n) - 1;
-            if (fabs (p[0] - prt[nn].p[0]) > 0.00001 
-             || fabs (p[1] - prt[nn].p[1]) > 0.00001  
-             || fabs (p[2] - prt[nn].p[2]) > 0.00001  
-             || fabs (p[3] - prt[nn].p[3]) > 0.00001) {
+            if (fabs (p[0] - prt[nn].p[0]) > epsilon 
+             || fabs (p[1] - prt[nn].p[1]) > epsilon  
+             || fabs (p[2] - prt[nn].p[2]) > epsilon  
+             || fabs (p[3] - prt[nn].p[3]) > epsilon) {
                fprintf (fp, "Error in p%d (event: %ld, channel: %d):\n", n, i, c);
                fprintf (fp, "GPU: %lf %lf %lf %lf\n", p[0], p[1], p[2], p[3]);
                fprintf (fp, "CPU:  %lf %lf %lf %lf\n", prt[nn].p[0], prt[nn].p[1],
                                                        prt[nn].p[2], prt[nn].p[3]);
-
+               for (int j = 0; j < 4; j++) {
+                  double d = fabs(p[j] - prt[nn].p[j]); 
+                  if (d > max_abs_deviation[j]) max_abs_deviation[j] = d;
+                  sum_abs_deviation[j] += d;
+               }
+               n_events_failed++;
             }
         }
       }
-      if (ok) (*n_oks)++;
-   }
+    if (ok) (*n_oks)++;
+  }
+  fprintf (fp, "Failed events with EPSILON = %lf: %d / %d (%.2f%%)\n", epsilon, n_events_failed, n_events, (double)n_events_failed / n_events * 100);
+  if (n_events_failed > 0) {
+     fprintf (fp, "Max. deviations: %lf %lf %lf %lf\n",
+              max_abs_deviation[0], max_abs_deviation[1], max_abs_deviation[2], max_abs_deviation[3]);
+     fprintf (fp, "Avg. deviations: %lf %lf %lf %lf\n",
+              sum_abs_deviation[0] / n_events_failed, sum_abs_deviation[1] / n_events_failed,
+              sum_abs_deviation[2] / n_events_failed, sum_abs_deviation[3] / n_events_failed);
+  }
 
-   free (p_decay);
-   free (msq);
-   free (prt);
+  free (p_decay);
+  free (msq);
+  free (prt);
 }
 

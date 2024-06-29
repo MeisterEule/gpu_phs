@@ -1,0 +1,24 @@
+Precondition grid with 10 trials and 10000 events / trial.
+Trial 0: 409245 / 2340000 (17.49%)
+Trial 1: 1610560 / 2340000 (68.83%)
+Trial 2: 1954526 / 2340000 (83.53%)
+Trial 3: 2104033 / 2340000 (89.92%)
+Trial 4: 2181866 / 2340000 (93.24%)
+Trial 5: 2227555 / 2340000 (95.19%)
+Trial 6: 2255817 / 2340000 (96.40%)
+Trial 7: 2274506 / 2340000 (97.20%)
+Trial 8: 2287387 / 2340000 (97.75%)
+Trial 9: 2296330 / 2340000 (98.13%)
+Perform optimized GPU run with 51342642 events (219413 per channel):
+Required GPU memory: 76.171783 GiB
+Required CPU memory: 5.355462 GiB
+GPU: 76.853246 sec
+   Memcpy In: 0.137196
+   Memcpy Out: 75.538774
+   Kernel Init: 0.109934
+   Kernel MSQ: 0.029345
+   Kernel Create Boosts: 0.699882
+   Kernel Apply Boosts: 0.151870
+Valid events: 50530451 / 51342642 (98.42%)
+CPU: 90.619023 sec
+Valid events: 50530451 / 51342642 (98.42%)

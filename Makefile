@@ -1,13 +1,15 @@
 NVCC=nvcc
 CXX=g++
+FC=gfortran
 # The linker needs to be the Nvidia wrapper so that
 # all library dependencies can be resolved automatically.
 LD=$(NVCC)
 
-CXXFLAGS=
-NVCCFLAGS=-res-usage
+CXXFLAGS=-fPIC
+NVCCFLAGS=-res-usage -Xcompiler -fPIC
+FFLAGS=-fPIC -ffree-line-length-0
 
-INC=./external/include
+INC=-I./external/include -I/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include
 
 bin_sources = main.o \
               file_input.o \
@@ -23,16 +25,16 @@ lib_sources = monitoring.o \
               whizard_gpu_phs.o
 
 %.o: %.cpp 
-	$(CXX) -fPIC -I$(INC) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(INC) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.cu
-	$(NVCC) -Xcompiler -fPIC -I$(INC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(INC) $(NVCCFLAGS) -c $< -o $@
 
 %.mod: %.f90
-	gfortran -fPIC -ffree-line-length-0 -c $<
+	$(FC) $(FCFLAGS) -c $<
 
-phs.x: $(bin_sources)
-	$(LD) $^ -o $@	
+phs.x: $(sources)
+	$(LD) $^ -o $@ -L/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib -lcudart
 
 libphs.so: $(lib_sources)
 	g++ -shared $^ -L/usr/local/cuda-12.1/lib64 -lcudart -o $@
