@@ -28,9 +28,10 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double *x = (double*)malloc(n_x * n_events * sizeof(double));
 
    phs_val_t *pval = (phs_val_t*)malloc(n_events * sizeof (phs_val_t));
+   int n_channels_with_factor = input_control.do_inverse_mapping ? n_channels : 1;
    for (size_t i = 0; i < n_events; i++) {
       pval[i].prt = (phs_prt_t*)malloc(N_EXT_TOT * sizeof(phs_prt_t));
-      pval[i].factors = (double*)malloc(n_channels * sizeof(double));
+      pval[i].factors = (double*)malloc(n_channels_with_factor * sizeof(double));
    }
 
    int *channel_lims = (int*)malloc((n_channels + 1) * sizeof(int));
@@ -58,7 +59,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    fprintf (logfl[LOG_INPUT], "\n");
 
    double *p = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
-   double *factors = (double*)malloc(n_events * n_channels * sizeof(double)); 
+   double *factors = (double*)malloc(n_events * n_channels_with_factor * sizeof(double)); 
    double *volumes = (double*)malloc(n_events * sizeof(double)); 
    bool *oks = (bool*)malloc(N_PRT * n_events * sizeof(bool));
 

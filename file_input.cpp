@@ -224,11 +224,12 @@ void read_reference_momenta (const char *ref_file, int filepos,
    int current_channel = 1;
 
    int i_event = 0;
+   int n_channels_with_factor = input_control.do_inverse_mapping ? n_channels : 1;
    while (getline (reader, line)) {
       int c = counter % n_lines_per_batch;
       linebatch.push(line);
       if (c == n_lines_per_batch - 1) {
-         int i_event = counter / n_lines_per_batch;
+         i_event = counter / n_lines_per_batch;
          std::stringstream ss;
          ss.str(linebatch.front());
          linebatch.pop();
@@ -273,8 +274,8 @@ void read_reference_momenta (const char *ref_file, int filepos,
          ss.str(linebatch.front()); 
          linebatch.pop();
          ss >> id;
-         for (int c = 0; c < n_channels; c++) {
-            ss >> p[i_event].factors[c];
+         for (int ch = 0; ch < n_channels_with_factor; ch++) {
+            ss >> p[i_event].factors[ch];
          }
       }
       counter++;
