@@ -56,7 +56,7 @@ void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 
-void gen_phs_from_x_gpu (size_t n_events, 
+void gen_phs_from_x_gpu (bool for_whizard, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
 

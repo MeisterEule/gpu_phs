@@ -100,9 +100,9 @@ module gpu_phs_whizard_interface
        integer(kind=c_int), intent(in) :: n_x
        real(kind=c_double), dimension(*), intent(in) :: x
        real(kind=c_double), dimension(*), intent(out) :: factors
-       real(kind=c_double), dimension(*), intent(out) :: volumes
+       real(kind=c_double), dimension(*), intent(inout) :: volumes
        logical(kind=c_bool), dimension(*), intent(out) :: oks
-       real(kind=c_double), dimension(*), intent(out) :: p
+       real(kind=c_double), dimension(*), intent(inout) :: p
     end subroutine whizard_gen_phs_from_x_gpu 
 
   end interface

@@ -786,7 +786,7 @@ __global__ void _combine_particles (size_t N, int this_channel, int *channels, i
    }
 }
 
-void gen_phs_from_x_gpu (size_t n_events, 
+void gen_phs_from_x_gpu (bool for_whizard, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h) {
    START_TIMER(TIME_MEMCPY_IN);
@@ -805,9 +805,8 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaMalloc((void**)&cmds_boost_t_d, 3 * n_channels * N_LAMBDA_OUT * sizeof(int));
    cudaMemcpy(cmds_msq_d, cmd_msq, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int), cudaMemcpyHostToDevice);
    cudaMemcpy(cmds_boost_o_d, cmd_boost_o, 3 * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 2 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 3 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
-   double *prt_d;
    cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
    cudaMemset(prt_d, 0, N_PRT * n_events * 4 * sizeof(double));
 
@@ -924,7 +923,6 @@ void gen_phs_from_x_gpu (size_t n_events,
    double *copy = (double*)malloc(4 * N_PRT * n_events * sizeof(double));
    cudaMemcpy (copy, prt_d, 4 * N_PRT * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (size_t i = 0; i < n_events; i++) {
-      int c = channels[i];
       int idx = 1;
       for (int j = 0; j < N_EXT_OUT; j++) {
          p_h[4*N_EXT_OUT*i + 4*j + 0] = copy[4*N_PRT*i + 4*(idx-1) + 0];
@@ -968,7 +966,13 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaFree(cmds_msq_d);
    cudaFree(cmds_boost_o_d);
    cudaFree(cmds_boost_t_d);
-   cudaFree(prt_d);
+   if (for_whizard) {
+       n_events_in_store = n_events;
+       //p_transfer_to_whizard = prt_d;  
+       ///set_transfer_to_whizard<<<1,1>>>(prt_d);
+   } else {
+       cudaFree(prt_d);
+   }
    cudaFree(msq_d);
    cudaFree(p_decay);
    cudaFree(local_factors_d);
@@ -977,4 +981,9 @@ void gen_phs_from_x_gpu (size_t n_events,
    cudaFree(oks_d);   
    cudaFree(Ld);
    cudaFree(channels_d);
+   printf ("DONE GPU PHS\n");
+}
+
+double *get_momentum_device_pointer () {
+   return prt_d;
 }

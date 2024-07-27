@@ -17,9 +17,6 @@
 
 #include "cuda_runtime.h"
 
-double *flv_masses;
-double *flv_widths;
-
 void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, int filepos_start_mom) {
    size_t n_events = count_nevents_in_reference_file (ref_file, N_EXT_TOT, filepos_start_mom);
 
@@ -67,7 +64,7 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    init_mapping_constants_cpu (n_channels, sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts);
    double t1 = mysecond();
-   gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors, volumes, oks, p);
+   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors, volumes, oks, p);
    double t2 = mysecond();
 
    printf ("GPU: %lf sec\n", t2 - t1);
@@ -131,7 +128,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    printf ("Precondition grid with %d trials and %ld events / trial.\n", n_trials, n_trial_events);
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_trial_events, n_x, x);
-      gen_phs_from_x_gpu (n_trial_events_tot, n_channels, channels,
+      gen_phs_from_x_gpu (false, n_trial_events_tot, n_channels, channels,
                           n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
       // Count how many events return "ok". 
       n_ok = 0;
@@ -162,7 +159,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
    t1 = mysecond();
-   gen_phs_from_x_gpu (n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
+   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
    t2 = mysecond();
    printf ("GPU: %lf sec\n", t2 - t1);
    printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
