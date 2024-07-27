@@ -105,9 +105,10 @@ extern "C" void c_whizard_init_gpu_phs (double *sqrts) {
 }
 
 extern "C" void c_whizard_gen_phs_from_x_gpu (int *n_events, int *n_channels, int *n_x, double *x,
-                                              double *factors, double *volumes, bool *oks, double *p) {
+                                              double *factors, double *volumes, bool *oks,
+                                              double *p, double *x_out) {
   gen_phs_from_x_gpu (true, (size_t)*n_events, *n_channels, channel_ids, *n_x, x,
-                      factors, volumes, oks, p);
+                      factors, volumes, oks, p, x_out);
 }
 
 extern "C" void c_whizard_get_momentum_device_pointer (double *p) {

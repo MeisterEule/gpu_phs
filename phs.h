@@ -58,7 +58,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
 
 void gen_phs_from_x_gpu (bool for_whizard, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
-                         double *factors_h, double *volumes_h, bool *oks_h, double *p_h);
+                         double *factors_h, double *volumes_h, bool *oks_h, double *p_h, double *x_out);
 
 void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, double *x, int n_channels, int *channels,
                                         size_t *n_ok, double *p_gpu, double *factors_gpu, bool *oks_gpu, FILE *fp);

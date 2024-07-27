@@ -92,7 +92,7 @@ module gpu_phs_whizard_interface
     end subroutine whizard_init_gpu_phs
 
     subroutine whizard_gen_phs_from_x_gpu (n_events, n_channels, n_x, x, &
-                                           factors, volumes, oks, p) &
+                                           factors, volumes, oks, p, x_out) &
        bind(C, name='c_whizard_gen_phs_from_x_gpu')
        import c_int, c_bool, c_double
        integer(kind=c_int), intent(in) :: n_events
@@ -103,6 +103,7 @@ module gpu_phs_whizard_interface
        real(kind=c_double), dimension(*), intent(inout) :: volumes
        logical(kind=c_bool), dimension(*), intent(out) :: oks
        real(kind=c_double), dimension(*), intent(inout) :: p
+       real(kind=c_double), dimension(*), intent(inout) :: x_out
     end subroutine whizard_gen_phs_from_x_gpu 
 
   end interface

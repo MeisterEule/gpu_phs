@@ -60,11 +60,12 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double *factors = (double*)malloc(n_events * n_channels_with_factor * sizeof(double)); 
    double *volumes = (double*)malloc(n_events * sizeof(double)); 
    bool *oks = (bool*)malloc(N_PRT * n_events * sizeof(bool));
+   double *x_out = (double*)malloc(n_events * n_x * n_channels_with_factor * sizeof(double));
 
    init_mapping_constants_cpu (n_channels, sqrts);
    init_phs_gpu(n_channels, mappings_host, sqrts);
    double t1 = mysecond();
-   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors, volumes, oks, p);
+   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors, volumes, oks, p, x_out);
    double t2 = mysecond();
 
    printf ("GPU: %lf sec\n", t2 - t1);
@@ -117,6 +118,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    double *factors_gpu = (double*)malloc(n_events * n_channels * sizeof(double)); 
    double *volumes_gpu = (double*)malloc(n_events * sizeof(double)); 
    bool *oks_gpu = (bool*)malloc(n_events * sizeof(bool));
+   double *x_out = (double*)malloc(n_events * n_x * n_channels * sizeof(double));
 
    // ***** Grid preconditioning ***** 
    // The generation routine is called n_trial times to focus the random number
@@ -129,7 +131,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_trial_events, n_x, x);
       gen_phs_from_x_gpu (false, n_trial_events_tot, n_channels, channels,
-                          n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
+                          n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu, x_out);
       // Count how many events return "ok". 
       n_ok = 0;
       for (size_t i = 0; i < n_trial_events_tot; i++) {
@@ -159,7 +161,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
    t1 = mysecond();
-   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu);
+   gen_phs_from_x_gpu (false, n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu, x_out);
    t2 = mysecond();
    printf ("GPU: %lf sec\n", t2 - t1);
    printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);
