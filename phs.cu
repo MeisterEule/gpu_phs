@@ -639,7 +639,8 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
 }
 
 __device__ double azimuthal_angle (double n[3]) {
-   return atan(n[1] / n[0]);
+   double tmp = atan(n[1] / n[0]);
+   return tmp < 0 ? tmp + TWOPI : tmp;
 }
 
 __device__ void polar_angle_ct (double n[3], double *ct, double *st) {
