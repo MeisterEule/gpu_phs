@@ -2,6 +2,7 @@
 #include <math.h>
 #include <unistd.h>
 
+#include "file_input.h"
 #include "phs.h"
 #include "global_phs.h"
 
@@ -107,6 +108,7 @@ extern "C" void c_whizard_init_gpu_phs (double *sqrts) {
 extern "C" void c_whizard_gen_phs_from_x_gpu (int *n_events, int *n_channels, int *n_x, double *x,
                                               double *factors, double *volumes, bool *oks,
                                               double *p, double *x_out) {
+  input_control.do_inverse_mapping = true;
   gen_phs_from_x_gpu (true, (size_t)*n_events, *n_channels, channel_ids, *n_x, x,
                       factors, volumes, oks, p, x_out);
 }

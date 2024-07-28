@@ -188,7 +188,7 @@ __global__ void _move_x (size_t n_events, int n_x, int *all_channels, int this_c
   int original_channel = all_channels[tid];
   if (original_channel == this_channel) return;
   for (int i = 0; i < n_x; i++) {
-     all_x[n_x * n_events * original_channel + n_x * tid + i] = xc->x[n_x * tid + i];
+     all_x[n_x * n_events * this_channel + n_x * tid + i] = xc->x[n_x * tid + i];
   }
 }
 
@@ -674,13 +674,16 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
 
    double *phi = (double*)malloc(DN_BOOSTS * sizeof(double));
    phi[boost_idx] = azimuthal_angle(n);
+   size_t xtid = xc->nx * tid + xc->id_gpu[tid]++;
+   double *x = &(xc->x[xtid]);
+   *x = phi[boost_idx] / TWOPI;
    double *ct = (double*)malloc(DN_BOOSTS * sizeof(double));
    double *st = (double*)malloc(DN_BOOSTS * sizeof(double));
    polar_angle_ct(n, &ct[boost_idx], &st[boost_idx]);
-   size_t xtid = xc->nx * tid + xc->id_gpu[tid]++;
-   double *x = &(xc->x[xtid]);
    double f;
    double *b = mappings_d[channel].b[branch_idx].a;
+   xtid = xc->nx * tid + xc->id_gpu[tid]++;
+   x = &(xc->x[xtid]);
    mappings_d[channel].comp_ct_inv[branch_idx](ct[boost_idx], st[boost_idx], sqrts*sqrts, b, x, &f);
    factors[DN_BRANCHES * tid + branch_idx] *= f;
 
