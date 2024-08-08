@@ -841,7 +841,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaMemcpy(cmds_boost_o_d, cmd_boost_o, 3 * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
    cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 3 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
-   cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
+   if (prt_d == NULL) cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
    cudaMemset(prt_d, 0, N_PRT * n_events * 4 * sizeof(double));
 
    double *msq_d;
@@ -1024,7 +1024,8 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaFree(oks_d);   
    cudaFree(Ld);
    cudaFree(channels_d);
-   printf ("DONE GPU PHS\n");
+   cudaFree(i_gather_d);
+   cudaFree(flv_masses_d);
 }
 
 double *get_momentum_device_pointer () {

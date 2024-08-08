@@ -10,7 +10,6 @@ int *channel_ids = NULL;
 
 extern "C" void c_whizard_set_particle_structure (int *n_channels, int *n_trees, int *n_groves,
                                                   int *n_x, int *n_in, int *n_out) {
-   printf ("HUHU: %d\n", *n_channels);
    N_CHANNELS = *n_channels;
    N_EXT_IN = *n_in;
    N_EXT_OUT = *n_out;
@@ -88,10 +87,13 @@ extern "C" void c_whizard_fill_tree_structure (int *channel, int *w_daughters1, 
   contains_friends[c] = *w_contains_friends;
 } 
 
-extern "C" void c_whizard_init_channel_ids (int *batch_size, int *n_channels) {
+extern "C" void c_whizard_init_channel_ids (int *batch_size, int *n_channels, int *channel_limits) {
+   if (channel_ids != NULL) free (channel_ids);
    channel_ids = (int*)malloc(*batch_size * sizeof(int));
+   int current_channel = 0;
    for (int i = 0; i < *batch_size; i++) {
-      channel_ids[i] = 0;
+      channel_ids[i] = current_channel;
+      if (i + 1 == channel_limits[current_channel]) current_channel++;
    }
 }
 

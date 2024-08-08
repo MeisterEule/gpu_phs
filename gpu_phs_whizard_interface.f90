@@ -70,11 +70,12 @@ module gpu_phs_whizard_interface
       subroutine whizard_show_module () &
          bind(C, name='c_whizard_show_module')
       end subroutine whizard_show_module
-      subroutine whizard_init_channel_ids (batch_size, n_channels) &
+      subroutine whizard_init_channel_ids (batch_size, n_channels, channel_limits) &
          bind(C, name='c_whizard_init_channel_ids')
          import c_int
          integer(kind=c_int), intent(in) :: batch_size
          integer(kind=c_int), intent(in) :: n_channels
+         integer(kind=c_int), intent(in), dimension(*) :: channel_limits
       end subroutine whizard_init_channel_ids
 
      subroutine whizard_set_threads (msq_threads, cb_threads, ab_threads) &
@@ -99,7 +100,7 @@ module gpu_phs_whizard_interface
        integer(kind=c_int), intent(in) :: n_channels
        integer(kind=c_int), intent(in) :: n_x
        real(kind=c_double), dimension(*), intent(in) :: x
-       real(kind=c_double), dimension(*), intent(out) :: factors
+       real(kind=c_double), dimension(*), intent(inout) :: factors
        real(kind=c_double), dimension(*), intent(inout) :: volumes
        logical(kind=c_bool), dimension(*), intent(out) :: oks
        real(kind=c_double), dimension(*), intent(inout) :: p
