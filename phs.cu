@@ -1023,7 +1023,10 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaFree(msq_d);
    cudaFree(p_decay);
    cudaFree(local_factors_d);
-   if (input_control.do_inverse_mapping) cudaFree(all_factors_d);
+   if (input_control.do_inverse_mapping) {
+      cudaFree(all_factors_d);
+      cudaFree(all_x_d);
+   }
    cudaFree(volumes_d);
    cudaFree(oks_d);   
    cudaFree(Ld);
