@@ -44,6 +44,12 @@ do { \
    fprintf (logfl[LOG_CUDA], "%s: %s\n", cuda_checks[id], cudaGetErrorString(cudaGetLastError())); \
 } while (0)
 
+#define SIGNAL_CUDA_ERROR(loc) \
+do { \
+   cudaError_t ce = cudaGetLastError(); \
+   if (ce != cudaSuccess) printf ("CUDA FAIL at %s: %s\n", loc, cudaGetErrorString(ce)); \
+} while (0)
+
 void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channels,
                              phs_val_t *pval,
                              double *pgen, double *factors, double *volumes);

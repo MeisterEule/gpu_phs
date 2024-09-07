@@ -39,7 +39,6 @@ extern "C" void c_whizard_set_flavors (double *masses, double *widths) {
 }
 
 extern "C" void c_whizard_init_mappings () {
-   ///printf ("Init mappings: %d %d\n", N_CHANNELS, N_PRT_OUT);
    mappings_host = (mapping_t*)malloc(N_CHANNELS * sizeof(mapping_t));
    for (int c = 0; c < N_CHANNELS; c++) {
       mappings_host[c].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
@@ -154,6 +153,29 @@ extern "C" void c_whizard_show_module () {
       printf (" widths: ");
       for (int i = 0; i < N_PRT_OUT; i++) {
          printf ("%lf ", mappings_host[c].widths[i]);
+      }
+      printf ("\n");
+
+      printf (" mass_sum: ");
+      for (int i = 0; i < N_PRT; i++) {
+         printf ("%lf ", mappings_host[c].mass_sum[i]);
+      }
+      printf ("\n");
+
+   }
+
+   printf ("Children: \n");
+   for (int c = 0; c < N_CHANNELS; c++) {
+      for (int i = 0; i < N_PRT; i++) {
+         printf ("%d ", daughters1[c][i]);
+      }
+      printf ("\n");
+      for (int i = 0; i < N_PRT; i++) {
+         printf ("%d ", daughters2[c][i]);
+      }
+      printf ("\n");
+      for (int i = 0; i < N_PRT; i++) {
+         printf ("%d ", has_children[c][i]);
       }
       printf ("\n");
    }

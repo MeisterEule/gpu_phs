@@ -7,6 +7,7 @@
 #include "global_phs.h"
 #include "monitoring.h"
 #include "file_input.h"
+#include "transfer_to_whizard.h"
 
 __device__ int DN_EXT_IN;
 __device__ int DN_EXT_OUT;
@@ -52,7 +53,26 @@ int search_in_igather (int c, int x) {
   return -1;
 }
 
-__global__ void _init_mappings (int n_channels, mapping_t *map_h) {
+void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
+   if (has_children[channel][branch_idx]) {
+      int k1 = daughters1[channel][branch_idx];
+      int k2 = daughters2[channel][branch_idx];
+      set_mass_sum (channel, mass_sum, k1);
+      set_mass_sum (channel, mass_sum, k2);
+      mass_sum[branch_idx] = mass_sum[k1] + mass_sum[k2]; 
+   } else {
+      // Poor man's integer ld2
+      int ld2 = 0;
+      int bb = branch_idx + 1;
+      while (bb > 1) {
+         bb = bb / 2;
+         ld2++;
+      }
+      mass_sum[branch_idx] = flv_masses[ld2 + 2];
+   }
+}
+
+__global__ void _init_mappings (int n_channels) {
    mappings_d = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    for (int c = 0; c < n_channels; c++) {
       mappings_d[c].map_id = (int*)malloc(DN_BRANCHES * sizeof(int));
@@ -365,7 +385,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
    }
 
    cudaDeviceSynchronize();
-   _init_mappings<<<1,1>>>(n_channels, map_h);
+   for (int c = 0; c < n_channels; c++) {
+      set_mass_sum (c, map_h[c].mass_sum, ROOT_BRANCH);
+   }
+   _init_mappings<<<1,1>>>(n_channels);
+
    int *tmp;
    cudaMalloc((void**)&tmp, N_BRANCHES * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
@@ -442,7 +466,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
         cmd_boost_t[3*N_LAMBDA_OUT*c + 3*i + 2] = cmd_target[i].b[2];
      }
   }
-  printf ("CudaError Init: %s\n", cudaGetErrorString(cudaGetLastError()));
 }
 
 __global__ void _init_msq (size_t N, int n_channels, int *channels,
@@ -876,6 +899,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    STOP_TIMER(TIME_KERNEL_INIT);
 
    ///CHECK_CUDA_STATE(SAFE_CUDA_INIT);
+   SIGNAL_CUDA_ERROR("INIT"); 
 
 
    int nt = kernel_control.msq_threads;
@@ -909,6 +933,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    STOP_TIMER(TIME_KERNEL_MSQ);
 
    ///CHECK_CUDA_STATE(SAFE_CUDA_MSQ);
+   SIGNAL_CUDA_ERROR ("MSQ");
 
    nt = kernel_control.cb_threads;
    nb = n_events / nt  + 1;
@@ -928,7 +953,8 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
 
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_AB);
-   CHECK_CUDA_STATE(SAFE_CUDA_AB);
+   ///CHECK_CUDA_STATE(SAFE_CUDA_AB);
+   SIGNAL_CUDA_ERROR ("CT");
 
    if (input_control.do_inverse_mapping) {
       _move_factors<<<nb,nt>>> (n_events, channels_d, n_channels, local_factors_d, all_factors_d);
@@ -1004,6 +1030,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
 
    cudaMemcpy (oks_h, oks_d, n_events * sizeof(bool), cudaMemcpyDeviceToHost);
    STOP_TIMER(TIME_MEMCPY_OUT);
+   SIGNAL_CUDA_ERROR("DOWNLOAD");
 
    free(copy);
 

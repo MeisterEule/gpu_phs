@@ -196,24 +196,24 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    free(oks_gpu);
 }
 
-void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
-   if (has_children[channel][branch_idx]) {
-      int k1 = daughters1[channel][branch_idx];
-      int k2 = daughters2[channel][branch_idx];
-      set_mass_sum (channel, mass_sum, k1);
-      set_mass_sum (channel, mass_sum, k2);
-      mass_sum[branch_idx] = mass_sum[k1] + mass_sum[k2]; 
-   } else {
-      // Poor man's integer ld2
-      int ld2 = 0;
-      int bb = branch_idx + 1;
-      while (bb > 1) {
-         bb = bb / 2;
-         ld2++;
-      }
-      mass_sum[branch_idx] = flv_masses[ld2 + 2];
-   }
-} 
+///void set_mass_sum (int channel, double *mass_sum, int branch_idx) {
+///   if (has_children[channel][branch_idx]) {
+///      int k1 = daughters1[channel][branch_idx];
+///      int k2 = daughters2[channel][branch_idx];
+///      set_mass_sum (channel, mass_sum, k1);
+///      set_mass_sum (channel, mass_sum, k2);
+///      mass_sum[branch_idx] = mass_sum[k1] + mass_sum[k2]; 
+///   } else {
+///      // Poor man's integer ld2
+///      int ld2 = 0;
+///      int bb = branch_idx + 1;
+///      while (bb > 1) {
+///         bb = bb / 2;
+///         ld2++;
+///      }
+///      mass_sum[branch_idx] = flv_masses[ld2 + 2];
+///   }
+///} 
 
 bool check_file_exists (const char *filename) {
    std::ifstream infile(filename);

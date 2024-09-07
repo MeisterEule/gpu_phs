@@ -64,5 +64,6 @@ void gen_phs_from_x_cpu_time_and_check (double sqrts, size_t n_events, int n_x, 
                                         size_t *n_ok, double *p_gpu, double *factors_gpu, bool *oks_gpu, FILE *fp);
 
 
+void set_mass_sum (int channel, double *mass_sum, int branch_idx);
 
 #endif
