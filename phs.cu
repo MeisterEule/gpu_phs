@@ -680,7 +680,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    if (tid >= N) return;
    if (channel == channels[tid]) return;
 
-   int branch_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 1];
+   int branch_idx = cb_cmd[3*n_cb_cmd*channel + 3*0];
    int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
    int boost_idx = cb_cmd[3*n_cb_cmd*channel + 3*0 + 1];
@@ -727,11 +727,13 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    L1->l[3][3] = gamma;
 
    for (int c = 1; c < n_cb_cmd; c++) {
-      branch_idx = ab_cmd[3*n_ab_cmd*channel + 3*c + 1];
-      daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*c + 2];
+      branch_idx = cb_cmd[3*n_cb_cmd*channel + 3*c + 0];
+      daughter_idx = cb_cmd[3*n_cb_cmd*channel + 3*c + 2];
       prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
       p = p_decay[DN_BRANCHES * tid + branch_idx];
       m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
+      ///p = p_decay[DN_BRANCHES * prt_idx + branch_idx];
+      ///m = sqrt(msq[DN_BRANCHES * prt_idx + branch_idx]);
       bg = m > 0 ? p / m : 0;
       gamma = sqrt (1 + bg * bg);
 
@@ -754,10 +756,13 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
      double py = -sp0  * p1[1] + cp0 * p1[2];
      n[0] = ct0 * px - st0 * p1[3];
      n[1] = py;
-     n[2] = -st0 * px + ct0 * p1[3];
+     n[2] = st0 * px + ct0 * p1[3];
      gamma = sqrt(1 + bg*bg);
      n[2] = n[2] * gamma - p1[0] * bg;
      phi[DN_BOOSTS * tid + boost_idx] = azimuthal_angle(n);
+     xtid = xc->nx * tid + xc->id_gpu[tid]++;
+     x = &(xc->x[xtid]);
+     *x = phi[DN_BOOSTS * tid + boost_idx] / TWOPI;
      polar_angle_ct (n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
      xtid = xc->nx * tid + xc->id_gpu[tid]++;
      x = &(xc->x[xtid]);
