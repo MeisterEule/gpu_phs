@@ -766,6 +766,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
      polar_angle_ct (n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
      xtid = xc->nx * tid + xc->id_gpu[tid]++;
      x = &(xc->x[xtid]);
+     b = mappings_d[channel].b[branch_idx].a;
      mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts*sqrts, b, x, &f);
      factors[DN_BRANCHES * tid + branch_idx] *= f;
 
