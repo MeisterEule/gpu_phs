@@ -706,7 +706,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = &(xc->x[xtid]);
    mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts*sqrts, b, x, &f);
-   factors[DN_BRANCHES * tid + branch_idx] *= f;
+   factors[DN_BRANCHES * tid] *= f;
 
    struct boost *L1 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
    L1->l[0][0] = gamma; 
@@ -768,7 +768,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
      x = &(xc->x[xtid]);
      b = mappings_d[channel].b[branch_idx].a;
      mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts*sqrts, b, x, &f);
-     factors[DN_BRANCHES * tid + branch_idx] *= f;
+     factors[DN_BRANCHES * tid] *= f;
 
      double L1[4][4];
      L1[0][0] = gamma;
