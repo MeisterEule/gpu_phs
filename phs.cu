@@ -719,7 +719,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          R[1][2] = (1-ct_ref)*rot_axis[0]*rot_axis[1];
          R[1][3] = st_ref*rot_axis[1];
          R[2][0] = 0;
-         R[2][1] = R[2][1];
+         R[2][1] = R[1][2];
          R[2][2] = ct_ref + (1-ct_ref)*rot_axis[1]*rot_axis[1];
          R[2][3] = st_ref*rot_axis[0];
          R[3][0] = 0;
@@ -750,7 +750,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          L1[2][1] = ct * sp;
          L1[2][2] = cp;
          L1[2][3] = st * sp;
-         L1[3][0] = bg;
+         L1[3][0] = 0;
          L1[3][1] = -st;
          L1[3][2] = 0;
          L1[3][3] = ct; 
@@ -785,13 +785,13 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          Lnew->l[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
 
          if (tid == 388) {
-            printf ("Lnew: ");
-            for (int i = 0; i < 4; i++) {
-               for (int j = 0; j < 4; j++) {
-                  printf ("L[%d][%d]: %lf\n ", i, j, Lnew->l[i][j]);
-               }
-            }
-            printf ("\n");
+            ///printf ("Lnew: ");
+            ///for (int i = 0; i < 4; i++) {
+            ///   for (int j = 0; j < 4; j++) {
+            ///      printf ("L[%d][%d]: %lf\n ", i, j, Lnew->l[i][j]);
+            ///   }
+            ///}
+            ///printf ("\n");
          }
      }
    }
