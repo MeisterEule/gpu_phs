@@ -58,14 +58,14 @@ module gpu_phs_whizard_interface
          bind (C, name='c_whizard_init_tree_structures')
       end subroutine whizard_init_tree_structures
 
-      subroutine whizard_fill_tree_structure (channel, daughters1, daughters2, has_children, contains_friends) &
+      subroutine whizard_fill_tree_structure (channel, daughters1, daughters2, has_children, friends) &
          bind (C, name='c_whizard_fill_tree_structure')
          import c_int
          integer, intent(in) :: channel
          integer, intent(in), dimension(*) :: daughters1
          integer, intent(in), dimension(*) :: daughters2
          integer, intent(in), dimension(*) :: has_children
-         integer, intent(in) :: contains_friends
+         integer, intent(in), dimension(*):: friends
       end subroutine whizard_fill_tree_structure
       subroutine whizard_show_module () &
          bind(C, name='c_whizard_show_module')
@@ -91,6 +91,10 @@ module gpu_phs_whizard_interface
         import c_double
         real(kind=c_double), intent(in) :: sqrts
     end subroutine whizard_init_gpu_phs
+
+    subroutine whizard_reset_phs_generator () &
+       bind (C, name='c_whizard_reset_generator')
+    end subroutine whizard_reset_phs_generator
 
     subroutine whizard_gen_phs_from_x_gpu (n_events, n_channels, n_x, x, &
                                            factors, volumes, oks, p, x_out) &

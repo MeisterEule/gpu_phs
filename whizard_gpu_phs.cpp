@@ -68,22 +68,31 @@ extern "C" void c_whizard_init_tree_structures () {
    daughters1 = (int**)malloc(N_CHANNELS * sizeof(int*));
    daughters2 = (int**)malloc(N_CHANNELS * sizeof(int*));
    has_children = (int**)malloc(N_CHANNELS * sizeof(int*));
-   contains_friends = (int*)malloc(N_CHANNELS * sizeof(int));
+   friends = (int**)malloc(N_CHANNELS * sizeof(int));
+   ///has_friends = (int*)malloc(N_CHANNELS * sizeof(int));
    for (int c = 0; c < N_CHANNELS; c++) {
       daughters1[c] = (int*)malloc(N_PRT * sizeof(int));
       daughters2[c] = (int*)malloc(N_PRT * sizeof(int));
       has_children[c] = (int*)malloc(N_PRT * sizeof(int));
+      friends[c] = (int*)malloc(N_PRT * sizeof(int));
    }
 }
 
-extern "C" void c_whizard_fill_tree_structure (int *channel, int *w_daughters1, int *w_daughters2, int *w_has_children, int *w_contains_friends) {
+extern "C" void c_whizard_fill_tree_structure (int *channel, int *w_daughters1, int *w_daughters2, int *w_has_children, int *w_friends) {
   int c = *channel - 1;
   for (int i = 0; i < N_PRT; i++) {
      daughters1[c][i] = w_daughters1[i];  
      daughters2[c][i] = w_daughters2[i];  
      has_children[c][i] = w_has_children[i];
+     friends[c][i] = w_friends[i];
   }
-  contains_friends[c] = *w_contains_friends;
+  if (c == 43) {
+     printf ("Channel 44's friends: ");
+     for (int i = 0; i < N_PRT; i++) {
+        printf ("%d ", friends[43][i]);
+     }
+     printf ("\n");
+  }
 } 
 
 extern "C" void c_whizard_init_channel_ids (int *batch_size, int *n_channels, int *channel_limits) {
@@ -116,6 +125,10 @@ extern "C" void c_whizard_gen_phs_from_x_gpu (int *n_events, int *n_channels, in
 
 extern "C" void c_whizard_get_momentum_device_pointer (double *p) {
   ///p = p_transfer_to_whizard; 
+}
+
+extern "C" void c_whizard_reset_generator () {
+  reset_phs();
 }
 
 extern "C" void c_whizard_show_module () {
@@ -226,5 +239,4 @@ extern "C" void c_whizard_show_module () {
       }
    }
    fprintf (stdout, "END OF MODULE\n");
-
 }

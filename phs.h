@@ -39,7 +39,7 @@ typedef struct {
 extern int **daughters1;
 extern int **daughters2;
 extern int **has_children;
-extern int *contains_friends;
+extern int **friends;
 
 extern int **i_scatter;
 extern int **i_gather;
@@ -55,6 +55,7 @@ int search_in_igather (int c, int x);
 void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h, double s);
+void reset_phs ();
 
 void gen_phs_from_x_gpu (bool for_whizard, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,

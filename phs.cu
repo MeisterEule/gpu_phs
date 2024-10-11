@@ -27,7 +27,7 @@ __device__ int DN_LAMBDA_OUT;
 int **daughters1 = NULL;
 int **daughters2 = NULL;
 int **has_children = NULL;
-int *contains_friends = NULL;
+int **friends = NULL;
 
 int **i_scatter = NULL;
 int **i_gather = NULL;
@@ -36,6 +36,8 @@ int *cmd_msq = NULL;
 
 int *cmd_boost_o = NULL;
 int *cmd_boost_t = NULL;
+
+#define BOOST_O_STRIDE 4
 
 template <typename T> void cudaMemcpyMaskedH2D (size_t N, int *idx, T *field_d, T *field_h) {
    T *tmp = (T*)malloc(N * sizeof(T));
@@ -233,22 +235,25 @@ void extract_msq_branch_idx (std::vector<int> *cmd_list, int channel, int branch
 }
 
 typedef struct {
-   int b[3];
+   int b[4];
 } boost_cmd_t;
 
-void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int channel, int branch_idx, std::list<int> *parent_boost, int *boost_counter) {
+void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int *friends, int channel, 
+                            int branch_idx, std::list<int> *parent_boost, int *boost_counter) {
    if (has_children[channel][branch_idx]) {
       int k1 = daughters1[channel][branch_idx];
       int k2 = daughters2[channel][branch_idx];
+      if (channel == 43) printf ("k1: %d, k2: %d, branch_idx: %d\n", k1, k2, branch_idx);
       boost_cmd_t b;
       b.b[0] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather(channel, branch_idx);
       b.b[1] = *boost_counter;
       b.b[2] = parent_boost->back();
+      b.b[3] = friends[branch_idx] - 1;
       cmd_list->push_back (b);
       parent_boost->push_back(*boost_counter);
       (*boost_counter)++; 
-      extract_boost_origins (cmd_list, channel, k1, parent_boost, boost_counter); 
-      extract_boost_origins (cmd_list, channel, k2, parent_boost, boost_counter); 
+      extract_boost_origins (cmd_list, friends, channel, k1, parent_boost, boost_counter); 
+      extract_boost_origins (cmd_list, friends, channel, k2, parent_boost, boost_counter); 
       parent_boost->pop_back();
    }
 }
@@ -291,6 +296,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
                                   N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
                                   N_LAMBDA_IN, N_LAMBDA_OUT);
 
+   cudaDeviceSynchronize();
    int **d1 = (int**)malloc(n_channels * sizeof(int*));
    int **d2 = (int**)malloc(n_channels * sizeof(int*));
    for (int c = 0; c < n_channels; c++) {
@@ -423,11 +429,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
    std::vector<boost_cmd_t> cmd_target;
    std::list<int> parent_stack;
    parent_stack.push_back(0);
-   cmd_boost_o = (int*)malloc(3 * N_LAMBDA_IN * n_channels * sizeof(int));
+   cmd_boost_o = (int*)malloc(BOOST_O_STRIDE * N_LAMBDA_IN * n_channels * sizeof(int));
    for (int c = 0; c < n_channels; c++) {
       cmd_origin.clear();
       int dummy = 1;
-      extract_boost_origins (&cmd_origin, c, ROOT_BRANCH, &parent_stack, &dummy);
+      extract_boost_origins (&cmd_origin, friends[c], c, ROOT_BRANCH, &parent_stack, &dummy);
       if (cmd_origin.size() != N_LAMBDA_IN) {
          printf ("Internal error: Number of boosts does not equal stack size!\n");
       } else {
@@ -441,9 +447,10 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
 
 
       for (int i = 0; i < N_LAMBDA_IN; i++) {
-         cmd_boost_o[3*N_LAMBDA_IN*c + 3*i] = cmd_origin[i].b[0];
-         cmd_boost_o[3*N_LAMBDA_IN*c + 3*i + 1] = cmd_origin[i].b[1];
-         cmd_boost_o[3*N_LAMBDA_IN*c + 3*i + 2] = cmd_origin[i].b[2];
+         cmd_boost_o[BOOST_O_STRIDE*N_LAMBDA_IN*c + BOOST_O_STRIDE*i] = cmd_origin[i].b[0];
+         cmd_boost_o[BOOST_O_STRIDE*N_LAMBDA_IN*c + BOOST_O_STRIDE*i + 1] = cmd_origin[i].b[1];
+         cmd_boost_o[BOOST_O_STRIDE*N_LAMBDA_IN*c + BOOST_O_STRIDE*i + 2] = cmd_origin[i].b[2];
+         cmd_boost_o[BOOST_O_STRIDE*N_LAMBDA_IN*c + BOOST_O_STRIDE*i + 3] = cmd_origin[i].b[3];
       }
   }
 
@@ -454,11 +461,11 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
      int dummy = 1;
      extract_boost_targets (&cmd_target, c, ROOT_BRANCH, &parent_stack, &dummy);
     
-     fprintf (logfl[LOG_INPUT], "N_LAMBDA_OUT: %d, cmd_target.size(): %ld\n", N_LAMBDA_OUT, cmd_target.size());
-     fprintf (logfl[LOG_INPUT], "Targets[%d]\n", c);
-     for (boost_cmd_t b : cmd_target) {
-        fprintf (logfl[LOG_INPUT], "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
-      }
+     ///fprintf (stdout, "N_LAMBDA_OUT: %d, cmd_target.size(): %ld\n", N_LAMBDA_OUT, cmd_target.size());
+     ///fprintf (stdout, "Targets[%d]\n", c);
+     ///for (boost_cmd_t b : cmd_target) {
+     ///   fprintf (stdout, "%d %d %d\n", b.b[0], b.b[1], b.b[2]);
+     /// }
 
      for (int i = 0; i < N_LAMBDA_OUT; i++) {
         cmd_boost_t[3*N_LAMBDA_OUT*c + 3*i] = cmd_target[i].b[0];
@@ -608,8 +615,11 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
    if (tid >= N) return;
    int channel = channels[tid];
    for (int c = 0; c < n_cmd; c++) {
-      int branch_idx = cmd[3*n_cmd*channel + 3*c];
+      int branch_idx = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c];
+      int ffriend = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c + 3];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
+      ///if (tid == 388) printf ("msq: %lf\n", msq[DN_BRANCHES * tid + branch_idx]);
+      if (tid == 388) printf ("branch_idx: %d, friend: %d\n", branch_idx, ffriend);
       double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
@@ -680,11 +690,11 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    if (tid >= N) return;
    if (channel == channels[tid]) return;
 
-   int branch_idx = cb_cmd[3*n_cb_cmd*channel + 3*0];
+   int branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0];
    int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
-   int boost_idx = cb_cmd[3*n_cb_cmd*channel + 3*0 + 1];
-   int parent_boost = cb_cmd[3*n_cb_cmd*channel + 3*0 + 2];
+   int boost_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 1];
+   int parent_boost = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 2];
    double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
    double p = p_decay[DN_BRANCHES * tid + branch_idx];
    double bg = m > 0 ? p / m : 0;
@@ -727,8 +737,8 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
    L1->l[3][3] = gamma;
 
    for (int c = 1; c < n_cb_cmd; c++) {
-      branch_idx = cb_cmd[3*n_cb_cmd*channel + 3*c + 0];
-      daughter_idx = cb_cmd[3*n_cb_cmd*channel + 3*c + 2];
+      branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*c + 0];
+      daughter_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*c + 2];
       prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
       p = p_decay[DN_BRANCHES * tid + branch_idx];
       m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
@@ -737,8 +747,8 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
       bg = m > 0 ? p / m : 0;
       gamma = sqrt (1 + bg * bg);
 
-      parent_boost = cb_cmd[3*n_cb_cmd*channel + 3*c + 2];
-      boost_idx = cb_cmd[3*n_cb_cmd*channel + 3*c + 1];
+      parent_boost = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*c + 2];
+      boost_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*c + 1];
       double cp0 = cos(phi[DN_BOOSTS * tid + parent_boost]);
       double sp0 = sin(phi[DN_BOOSTS * tid + parent_boost]);
       double ct0 = ct[DN_BOOSTS * tid + parent_boost];
@@ -811,6 +821,7 @@ __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_c
       int prt_idx = i_gather[DN_BRANCHES * channel + branch_idx];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
       double E = sqrt(msq[DN_BRANCHES * tid + branch_idx] + p * p);
+      if (tid == 388) printf ("apply: %d\n", prt_idx);
       for (int i = 0; i < 4; i++) {
          prt[DPRT_STRIDE * tid + 4 * prt_idx + i] = Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i] * E
                                                   + Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i + 3] * p;
@@ -842,6 +853,14 @@ __global__ void _combine_particles (size_t N, int this_channel, int *channels, i
    }
 }
 
+static double *prt_d = NULL;
+
+void reset_phs () {
+  free (flv_masses); flv_masses = NULL;
+  free (flv_widths); flv_widths = NULL;
+  cudaFree (prt_d); prt_d = NULL;
+}
+
 void gen_phs_from_x_gpu (bool for_whizard, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h,
@@ -856,15 +875,16 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaMemcpy (x_d, x_h, n_x * n_events * sizeof(double), cudaMemcpyHostToDevice);
    cudaMemset (id_d, 0, n_events * sizeof(size_t));
 
+
    int *cmds_msq_d, *cmds_boost_o_d, *cmds_boost_t_d;
    cudaMalloc((void**)&cmds_msq_d, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int));
-   cudaMalloc((void**)&cmds_boost_o_d, 3 * n_channels * N_LAMBDA_IN * sizeof(int));
+   cudaMalloc((void**)&cmds_boost_o_d, BOOST_O_STRIDE * n_channels * N_LAMBDA_IN * sizeof(int));
    cudaMalloc((void**)&cmds_boost_t_d, 3 * n_channels * N_LAMBDA_OUT * sizeof(int));
    cudaMemcpy(cmds_msq_d, cmd_msq, 3 * n_channels * N_BRANCHES_INTERNAL * sizeof(int), cudaMemcpyHostToDevice);
-   cudaMemcpy(cmds_boost_o_d, cmd_boost_o, 3 * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
+   cudaMemcpy(cmds_boost_o_d, cmd_boost_o, BOOST_O_STRIDE * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
    cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 3 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
-   if (prt_d == NULL) cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
+   cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
    cudaMemset(prt_d, 0, N_PRT * n_events * 4 * sizeof(double));
 
    double *msq_d;
@@ -899,7 +919,9 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
 
    START_TIMER(TIME_KERNEL_INIT);
    _init_first_boost<<<n_events/1024 + 1,1024>>>(n_events, Ld); // Does not work with static __device__
+   cudaDeviceSynchronize();
    _init_fv<<<n_events/1024 + 1,1024>>> (n_events, local_factors_d, volumes_d, oks_d);
+   cudaDeviceSynchronize();
    _init_x<<<1,1>>> (xc, x_d, id_d, n_x);
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_INIT);

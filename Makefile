@@ -34,8 +34,8 @@ lib_sources = monitoring.o \
 %.mod: %.f90
 	$(FC) $(FCFLAGS) -c $<
 
-phs.x: $(sources)
-	$(LD) $^ -o $@ -L/home/christian/local/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib -lcudart
+phs.x: $(bin_sources)
+	$(LD) $^ -o $@ -L/usr/local/cuda-12.1/lib -lcudart
 
 libphs.so: $(lib_sources)
 	g++ -shared $^ -L/usr/local/cuda-12.1/lib64 -lcudart -o $@

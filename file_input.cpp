@@ -170,7 +170,7 @@ void read_tree_structures (const char *ref_file, int n_trees, int n_prt, int n_p
             ss >> has_children[cd][i];
          }
       } else if (cm == 3) {
-         ss >> contains_friends[cd];
+         ///ss >> contains_friends[cd];
       } else if (cm == 4) {
          int n = 0;
          while (n < n_prt_out) {

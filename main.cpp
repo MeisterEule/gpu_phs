@@ -281,7 +281,7 @@ int main (int argc, char *argv[]) {
    daughters1 = (int**)malloc(n_channels * sizeof(int*));
    daughters2 = (int**)malloc(n_channels * sizeof(int*));
    has_children = (int**)malloc(n_channels * sizeof(int*));
-   contains_friends = (int*)malloc(n_channels * sizeof(int));
+   friends = (int**)malloc(n_channels * sizeof(int*));
    mappings_host = (mapping_t*)malloc(n_channels * sizeof(mapping_t));
    flv_masses = (double*)malloc(N_EXT_TOT * sizeof(double));
    flv_widths = (double*)malloc(N_EXT_TOT * sizeof(double));
@@ -289,6 +289,7 @@ int main (int argc, char *argv[]) {
       daughters1[c] = (int*)malloc(N_PRT * sizeof(int));
       daughters2[c] = (int*)malloc(N_PRT * sizeof(int));
       has_children[c] = (int*)malloc(N_PRT * sizeof(int));
+      friends[c] = (int*)malloc(N_PRT * sizeof(int));
       mappings_host[c].map_id = (int*)malloc(N_PRT_OUT * sizeof(int));
       mappings_host[c].comp_msq = NULL;
       mappings_host[c].comp_ct = NULL;
@@ -320,7 +321,10 @@ int main (int argc, char *argv[]) {
       for (int i = 0; i < N_PRT; i++) {
          fprintf (logfl[LOG_INPUT], "%d ", has_children[c][i]);
       }
-      fprintf (logfl[LOG_INPUT], "\ncontains_friends: %d", contains_friends[c]);
+      fprintf (logfl[LOG_INPUT], "\nfriends: ");
+      for (int i = 0; i < N_PRT; i++) {
+         fprintf (logfl[LOG_INPUT], "%d ", friends[c][i]);
+      }
       fprintf (logfl[LOG_INPUT], "\nmappings: ");
       for (int i = 0; i < N_PRT_OUT; i++) {
          fprintf (logfl[LOG_INPUT], "%d ", mappings_host[c].map_id[i]);

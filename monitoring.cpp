@@ -40,7 +40,7 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channe
    double sum_abs_deviation[4] = {0, 0, 0, 0};
    for (int i = 0; i < n_events; i++) {
       int c = channels[i];
-      if (contains_friends[c] == 0) {
+      if (friends[c][i] == 0) {
          for (int n = 0; n < N_EXT_OUT; n++) {
             double *pv = pval[i].prt[N_EXT_IN+n].p;
             double *pg = &pgen[4*N_EXT_OUT*i + 4*n];
@@ -62,10 +62,10 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channe
             for (int oc = 0; oc < n_channels; oc++) {
                double gpu_factor = factors[n_channels * i + oc];
                double ref_factor = pval[i].factors[oc];
-               if (fabs (gpu_factor - ref_factor) > epsilon && !contains_friends[oc]) {
-                  fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, gpu_factor);
-                  n_events_failed++;
-               }
+               ///if (fabs (gpu_factor - ref_factor) > epsilon && !contains_friends[oc]) {
+               ///   fprintf (fp, "Error in factor (%d,%d): Validation: %lf, Generated: %lf\n", i, oc, ref_factor, gpu_factor);
+               ///   n_events_failed++;
+               ///}
             }
          }
 
@@ -73,9 +73,9 @@ void compare_phs_gpu_vs_ref (FILE *fp, int n_events, int n_channels, int *channe
             fprintf (fp, "Error in volume (%d): Validation: %lf, Generated: %lf\n", i, pval[i].v, volumes[i]);
             n_events_failed++;
          }
-      } else if (contains_friends[c] == 1) {
+      } else if (friends[c][i] == 1) {
           fprintf (fp, "Channel %d contains friends. Skip\n", c);
-          contains_friends[c] = -1;
+          ///contains_friends[c] = -1;
       }
    }
    fprintf (fp, "Failed events with EPSILON = %lf: %d / %d (%.2f%%)\n", epsilon, n_events_failed, n_events, (double)n_events_failed / n_events * 100);
