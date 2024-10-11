@@ -248,7 +248,13 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int *friends, in
       b.b[0] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather(channel, branch_idx);
       b.b[1] = *boost_counter;
       b.b[2] = parent_boost->back();
-      b.b[3] = friends[branch_idx] - 1;
+      if (friends[branch_idx] == 16) {
+         b.b[3] = -1;
+      } else if (friends[branch_idx] == 32) {
+         b.b[3] = 1;
+      } else {
+         b.b[3] = 0;
+      } 
       cmd_list->push_back (b);
       parent_boost->push_back(*boost_counter);
       (*boost_counter)++; 
@@ -616,6 +622,8 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
    int channel = channels[tid];
    for (int c = 0; c < n_cmd; c++) {
       int branch_idx = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c];
+      int boost_idx = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c + 1];
+      int parent_boost = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c + 2];
       int ffriend = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c + 3];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
       ///if (tid == 388) printf ("msq: %lf\n", msq[DN_BRANCHES * tid + branch_idx]);
@@ -635,39 +643,157 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
       x = xc->x[xtid];
       double *b = mappings_d[channel].b[branch_idx].a;
       mappings_d[channel].comp_ct[branch_idx](x, sqrts * sqrts, b, &ct, &st, &f);
+      if (tid == 388) printf ("ct: %lf, st: %lf\n", ct, st);
+      if (tid == 388) printf ("bg: %lf, gamma: %lf\n", bg, gamma);
       factors[DN_BRANCHES * tid] *= f;
 
-      double L1[4][4];
-      L1[0][0] = gamma;
-      L1[0][1] = -bg * st;
-      L1[0][2] = 0;
-      L1[0][3] = bg * ct;
-      L1[1][0] = 0;
-      L1[1][1] = ct * cp;
-      L1[1][2] = -sp;
-      L1[1][3] = st * cp;
-      L1[2][0] = 0;
-      L1[2][1] = ct * sp;
-      L1[2][2] = cp;
-      L1[2][3] = st * sp;
-      L1[3][0] = bg;
-      L1[3][1] = -gamma * st;
-      L1[3][2] = 0;
-      L1[3][3] = gamma * ct; 
+      if (ffriend == 0) {
 
-      int parent_boost = cmd[3*n_cmd*channel + 3*c + 2];
+         double L1[4][4];
+         L1[0][0] = gamma;
+         L1[0][1] = -bg * st;
+         L1[0][2] = 0;
+         L1[0][3] = bg * ct;
+         L1[1][0] = 0;
+         L1[1][1] = ct * cp;
+         L1[1][2] = -sp;
+         L1[1][3] = st * cp;
+         L1[2][0] = 0;
+         L1[2][1] = ct * sp;
+         L1[2][2] = cp;
+         L1[2][3] = st * sp;
+         L1[3][0] = bg;
+         L1[3][1] = -gamma * st;
+         L1[3][2] = 0;
+         L1[3][3] = gamma * ct; 
 
-      int boost_idx = cmd[3*n_cmd*channel + 3*c + 1];
-      struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
-      struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
-      memset (Lnew, 0, 16 * sizeof(double));
-      for (int i = 0; i < 4; i++) {
-         for (int j = 0; j < 4; j++) {
-            for (int k = 0; k < 4; k++) {
-               Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+
+         struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
+         struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
+         memset (Lnew, 0, 16 * sizeof(double));
+         for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+               for (int k = 0; k < 4; k++) {
+                  Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+               }
             }
          }
-      }
+     } else {
+         struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
+         double friend_axis[3];
+         double ref_axis[3] = {0, 0, 1};
+         if (tid == 388) {
+             printf ("ffriend: %d\n", ffriend);
+             printf ("L00: %lf, L01: %lf, L02: %lf, L03: %lf\n", L0->l[0][0], L0->l[0][1], L0->l[0][2], L0->l[0][3]);
+             printf ("L30: %lf, L31: %lf, L32: %lf, L33: %lf\n", L0->l[3][0], L0->l[3][1], L0->l[3][2], L0->l[3][3]);
+         }
+
+         double E = sqrts / 2;
+         double p = ffriend * E;
+
+         friend_axis[0] = -L0->l[0][1] * E + L0->l[3][1] * p;
+         friend_axis[1] = -L0->l[0][2] * E + L0->l[3][2] * p;
+         friend_axis[2] = (-bg*L0->l[0][0] - gamma*L0->l[0][3]) * E + (-bg*L0->l[3][0] + gamma*L0->l[3][3]) * p;
+         if (tid == 388) printf ("axis: %lf %lf %lf\n", friend_axis[0], friend_axis[1], friend_axis[2]);
+
+         double abs_f = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1] + friend_axis[2]*friend_axis[2]);
+         friend_axis[0] /= abs_f;
+         friend_axis[1] /= abs_f;
+         friend_axis[2] /= abs_f;
+
+         /// ref x friend (cross product)
+         double ct_ref = friend_axis[2];
+         ///double st_ref = sqrt(1-ct_ref*ct_ref);
+         double st_ref = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1]);
+         double rot_axis[3] = {-friend_axis[1] / st_ref, friend_axis[0] / st_ref, 0};
+         if (tid == 388) printf ("ct_ref: %lf %lf\n", ct_ref, ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0]);
+         if (tid == 388) printf ("st_ref: %lf\n", st_ref);
+
+         double R[4][4];
+         R[0][0] = 1;
+         R[0][1] = 0;
+         R[0][2] = 0;
+         R[0][3] = 0;
+         R[1][0] = 0;
+         R[1][1] = ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0];
+         R[1][2] = (1-ct_ref)*rot_axis[0]*rot_axis[1];
+         R[1][3] = st_ref*rot_axis[1];
+         R[2][0] = 0;
+         R[2][1] = R[2][1];
+         R[2][2] = ct_ref + (1-ct_ref)*rot_axis[1]*rot_axis[1];
+         R[2][3] = st_ref*rot_axis[0];
+         R[3][0] = 0;
+         R[3][1] = -R[1][3];
+         R[3][2] = -R[2][3];
+         R[3][3] = ct_ref;
+
+         if (tid == 388) {
+            ///printf ("R: ");
+            ///for (int i = 0; i < 4; i++) {
+            ///   for (int j = 0; j < 4; j++) {
+            ///      printf ("R[%d][%d] = %lf\n", i, j, R[i][j]);
+            ///   }
+            ///}
+         }
+
+
+         double L1[4][4];
+         L1[0][0] = 1;
+         L1[0][1] = 0;
+         L1[0][2] = 0;
+         L1[0][3] = 0;
+         L1[1][0] = 0;
+         L1[1][1] = ct * cp;
+         L1[1][2] = -sp;
+         L1[1][3] = st * cp;
+         L1[2][0] = 0;
+         L1[2][1] = ct * sp;
+         L1[2][2] = cp;
+         L1[2][3] = st * sp;
+         L1[3][0] = bg;
+         L1[3][1] = -st;
+         L1[3][2] = 0;
+         L1[3][3] = ct; 
+
+         double tmp[4][4];
+         for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+               tmp[i][j] = 0;
+               for (int k = 0; k < 4; k++) {
+                  tmp[i][j] += R[i][k] * L1[k][j];
+               }
+               ///if (tid == 388) printf ("tmp[%d][%d] = %lf\n", i, j, tmp[i][j]);
+            }
+         }
+         
+         struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
+         Lnew->l[0][0] = gamma*tmp[0][0] + bg*tmp[3][0];
+         Lnew->l[0][1] = gamma*tmp[0][1] + bg*tmp[3][1];
+         Lnew->l[0][2] = gamma*tmp[0][2] + bg*tmp[3][2];
+         Lnew->l[0][3] = gamma*tmp[0][3] + bg*tmp[3][3];
+         Lnew->l[1][0] = tmp[1][0];
+         Lnew->l[1][1] = tmp[1][1];
+         Lnew->l[1][2] = tmp[1][2];
+         Lnew->l[1][3] = tmp[1][3];
+         Lnew->l[2][0] = tmp[2][0];
+         Lnew->l[2][1] = tmp[2][1];
+         Lnew->l[2][2] = tmp[2][2];
+         Lnew->l[2][3] = tmp[2][3];
+         Lnew->l[3][0] = bg*tmp[0][0] + gamma*tmp[3][0];
+         Lnew->l[3][1] = bg*tmp[0][1] + gamma*tmp[3][1];
+         Lnew->l[3][2] = bg*tmp[0][2] + gamma*tmp[3][2]; 
+         Lnew->l[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
+
+         if (tid == 388) {
+            printf ("Lnew: ");
+            for (int i = 0; i < 4; i++) {
+               for (int j = 0; j < 4; j++) {
+                  printf ("L[%d][%d]: %lf\n ", i, j, Lnew->l[i][j]);
+               }
+            }
+            printf ("\n");
+         }
+     }
    }
 }
 
@@ -1069,7 +1195,6 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaFree(cmds_boost_o_d);
    cudaFree(cmds_boost_t_d);
    if (for_whizard) {
-       n_events_in_store = n_events;
        //p_transfer_to_whizard = prt_d;  
        ///set_transfer_to_whizard<<<1,1>>>(prt_d);
    } else {
