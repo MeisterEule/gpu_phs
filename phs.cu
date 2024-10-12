@@ -766,23 +766,23 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
             }
          }
          
-         struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
-         Lnew->l[0][0] = gamma*tmp[0][0] + bg*tmp[3][0];
-         Lnew->l[0][1] = gamma*tmp[0][1] + bg*tmp[3][1];
-         Lnew->l[0][2] = gamma*tmp[0][2] + bg*tmp[3][2];
-         Lnew->l[0][3] = gamma*tmp[0][3] + bg*tmp[3][3];
-         Lnew->l[1][0] = tmp[1][0];
-         Lnew->l[1][1] = tmp[1][1];
-         Lnew->l[1][2] = tmp[1][2];
-         Lnew->l[1][3] = tmp[1][3];
-         Lnew->l[2][0] = tmp[2][0];
-         Lnew->l[2][1] = tmp[2][1];
-         Lnew->l[2][2] = tmp[2][2];
-         Lnew->l[2][3] = tmp[2][3];
-         Lnew->l[3][0] = bg*tmp[0][0] + gamma*tmp[3][0];
-         Lnew->l[3][1] = bg*tmp[0][1] + gamma*tmp[3][1];
-         Lnew->l[3][2] = bg*tmp[0][2] + gamma*tmp[3][2]; 
-         Lnew->l[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
+         double tmp2[4][4];
+         tmp2[0][0] = gamma*tmp[0][0] + bg*tmp[3][0];
+         tmp2[0][1] = gamma*tmp[0][1] + bg*tmp[3][1];
+         tmp2[0][2] = gamma*tmp[0][2] + bg*tmp[3][2];
+         tmp2[0][3] = gamma*tmp[0][3] + bg*tmp[3][3];
+         tmp2[1][0] = tmp[1][0];
+         tmp2[1][1] = tmp[1][1];
+         tmp2[1][2] = tmp[1][2];
+         tmp2[1][3] = tmp[1][3];
+         tmp2[2][0] = tmp[2][0];
+         tmp2[2][1] = tmp[2][1];
+         tmp2[2][2] = tmp[2][2];
+         tmp2[2][3] = tmp[2][3];
+         tmp2[3][0] = bg*tmp[0][0] + gamma*tmp[3][0];
+         tmp2[3][1] = bg*tmp[0][1] + gamma*tmp[3][1];
+         tmp2[3][2] = bg*tmp[0][2] + gamma*tmp[3][2]; 
+         tmp2[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
 
          if (tid == 388) {
             ///printf ("Lnew: ");
@@ -792,6 +792,15 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
             ///   }
             ///}
             ///printf ("\n");
+         }
+         struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
+         memset (Lnew, 0, 16 * sizeof(double));
+         for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+               for (int k = 0; k < 4; k++) {
+                  Lnew->l[i][j] += L0->l[i][k] * tmp2[k][j];
+               }
+            }
          }
      }
    }
