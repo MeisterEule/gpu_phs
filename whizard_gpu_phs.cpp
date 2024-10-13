@@ -69,7 +69,6 @@ extern "C" void c_whizard_init_tree_structures () {
    daughters2 = (int**)malloc(N_CHANNELS * sizeof(int*));
    has_children = (int**)malloc(N_CHANNELS * sizeof(int*));
    friends = (int**)malloc(N_CHANNELS * sizeof(int*));
-   ///has_friends = (int*)malloc(N_CHANNELS * sizeof(int));
    for (int c = 0; c < N_CHANNELS; c++) {
       daughters1[c] = (int*)malloc(N_PRT * sizeof(int));
       daughters2[c] = (int*)malloc(N_PRT * sizeof(int));
