@@ -273,6 +273,7 @@ void extract_boost_targets (std::vector<boost_cmd_t> *cmd_list, int channel, int
    } else {
       b.b[2] = -1;
    }
+   b.b[3] = 0;
    cmd_list->push_back(b);
    if (has_children[channel][branch_idx]) {
       int k1 = daughters1[channel][branch_idx];
