@@ -634,6 +634,25 @@ __device__ void L_boost_3 (struct boost *L, double bg, double gamma) {
    L->l[3][3] = gamma;
 }
 
+__device__ void L_boost_3 (double L[4][4], double bg, double gamma) {
+   L[0][0] = gamma; 
+   L[0][1] = 0;
+   L[0][2] = 0;
+   L[0][3] = bg;
+   L[1][0] = 0;
+   L[1][1] = gamma;
+   L[1][2] = 0;
+   L[1][3] = 0;
+   L[2][0] = 0;
+   L[2][1] = 0;
+   L[2][2] = gamma;
+   L[2][3] = 0;
+   L[3][0] = bg;
+   L[3][1] = 0;
+   L[3][2] = 0;
+   L[3][3] = gamma;
+}
+
 __device__ void L_r2_r3_b3 (double L[4][4], double bg, double gamma, double ct, double st, double cp, double sp) {
    L[0][0] = gamma;
    L[0][1] = -bg * st;
@@ -670,6 +689,36 @@ __device__ void L_r3_r2_b3 (double L[4][4], double bg, double gamma, double ct, 
    L[3][1] = -gamma * st * cp;
    L[3][2] = gamma * st * sp;
    L[3][3] = gamma * ct;
+}
+
+__device__ void L_rot_to_2nd (double R[4][4], double n1[3], double n2[3]) {
+   double nabs = sqrt(n1[0]*n1[0] + n1[1]*n1[1] + n1[2]*n1[2]);
+   double a[3] = {n1[0] / nabs, n1[1] / nabs, n1[2] / nabs};
+   nabs = sqrt(n2[0]*n2[0] + n2[1]*n2[1] + n2[2]*n2[2]);
+   double b[3] = {n2[0] / nabs, n2[1] / nabs, n2[2] / nabs}; 
+   double ab[3] = {a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]};
+   double ct = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+   double st = sqrt(ab[0]*ab[0] + ab[1]*ab[1] + ab[2]*ab[2]);
+   ab[0] = ab[0] / st;
+   ab[1] = ab[1] / st;
+   ab[2] = ab[2] / st;
+
+   R[0][0] = 1;
+   R[0][1] = 0;
+   R[0][2] = 0;
+   R[0][3] = 0;
+   R[1][0] = 0;
+   R[1][1] = ct + (1-ct)*ab[0]*ab[0];
+   R[1][2] = (1-ct)*ab[0]*ab[1];
+   R[1][3] = st*ab[1];
+   R[2][0] = 0;
+   R[2][1] = R[1][2];
+   R[2][2] = ct + (1-ct)*ab[1]*ab[1];
+   R[2][3] = st*ab[0];
+   R[3][0] = 0;
+   R[3][1] = -R[1][3];
+   R[3][2] = -R[2][3];
+   R[3][3] = ct;
 }
 
 __device__ void L_multiply (struct boost *L_out, struct boost *L1, double L2[4][4]) {
@@ -789,117 +838,25 @@ __global__ void _create_boosts_step_with_friend (size_t N, double sqrts, int *ch
    friend_axis[0] = -L0->l[0][1] * Ef + L0->l[3][1] * pf;
    friend_axis[1] = -L0->l[0][2] * Ef + L0->l[3][2] * pf;
    friend_axis[2] = (-bg*L0->l[0][0] - gamma*L0->l[0][3]) * Ef + (-bg*L0->l[3][0] + gamma*L0->l[3][3]) * pf;
-   ///if (tid == 388) printf ("axis: %lf %lf %lf\n", friend_axis[0], friend_axis[1], friend_axis[2]);
-
-   double abs_f = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1] + friend_axis[2]*friend_axis[2]);
-   friend_axis[0] /= abs_f;
-   friend_axis[1] /= abs_f;
-   friend_axis[2] /= abs_f;
-
-   /// ref x friend (cross product)
-   double ct_ref = friend_axis[2];
-   ///double st_ref = sqrt(1-ct_ref*ct_ref);
-   double st_ref = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1]);
-   double rot_axis[3] = {-friend_axis[1] / st_ref, friend_axis[0] / st_ref, 0};
-   ///if (tid == 388) printf ("ct_ref: %lf %lf\n", ct_ref, ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0]);
-   ///if (tid == 388) printf ("st_ref: %lf\n", st_ref);
 
    double R[4][4];
-   R[0][0] = 1;
-   R[0][1] = 0;
-   R[0][2] = 0;
-   R[0][3] = 0;
-   R[1][0] = 0;
-   R[1][1] = ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0];
-   R[1][2] = (1-ct_ref)*rot_axis[0]*rot_axis[1];
-   R[1][3] = st_ref*rot_axis[1];
-   R[2][0] = 0;
-   R[2][1] = R[1][2];
-   R[2][2] = ct_ref + (1-ct_ref)*rot_axis[1]*rot_axis[1];
-   R[2][3] = st_ref*rot_axis[0];
-   R[3][0] = 0;
-   R[3][1] = -R[1][3];
-   R[3][2] = -R[2][3];
-   R[3][3] = ct_ref;
-
-   ///if (tid == 388) {
-      ///printf ("R: ");
-      ///for (int i = 0; i < 4; i++) {
-      ///   for (int j = 0; j < 4; j++) {
-      ///      printf ("R[%d][%d] = %lf\n", i, j, R[i][j]);
-      ///   }
-      ///}
-   ///}
-
+   double z[3] = {0, 0, 1};
+   L_rot_to_2nd (R, z, friend_axis);
 
    double L1[4][4];
    L_r2_r3_b3 (L1, 0, 1, ct, st, cp, sp);
-   ///L1[0][0] = 1;
-   ///L1[0][1] = 0;
-   ///L1[0][2] = 0;
-   ///L1[0][3] = 0;
-   ///L1[1][0] = 0;
-   ///L1[1][1] = ct * cp;
-   ///L1[1][2] = -sp;
-   ///L1[1][3] = st * cp;
-   ///L1[2][0] = 0;
-   ///L1[2][1] = ct * sp;
-   ///L1[2][2] = cp;
-   ///L1[2][3] = st * sp;
-   ///L1[3][0] = 0;
-   ///L1[3][1] = -st;
-   ///L1[3][2] = 0;
-   ///L1[3][3] = ct; 
 
    double tmp[4][4];
-   ///for (int i = 0; i < 4; i++) {
-   ///   for (int j = 0; j < 4; j++) {
-   ///      tmp[i][j] = 0;
-   ///      for (int k = 0; k < 4; k++) {
-   ///         tmp[i][j] += R[i][k] * L1[k][j];
-   ///      }
-   ///      ///if (tid == 388) printf ("tmp[%d][%d] = %lf\n", i, j, tmp[i][j]);
-   ///   }
-   ///}
    L_multiply (tmp, R, L1);
    
    double tmp2[4][4];
-   tmp2[0][0] = gamma*tmp[0][0] + bg*tmp[3][0];
-   tmp2[0][1] = gamma*tmp[0][1] + bg*tmp[3][1];
-   tmp2[0][2] = gamma*tmp[0][2] + bg*tmp[3][2];
-   tmp2[0][3] = gamma*tmp[0][3] + bg*tmp[3][3];
-   tmp2[1][0] = tmp[1][0];
-   tmp2[1][1] = tmp[1][1];
-   tmp2[1][2] = tmp[1][2];
-   tmp2[1][3] = tmp[1][3];
-   tmp2[2][0] = tmp[2][0];
-   tmp2[2][1] = tmp[2][1];
-   tmp2[2][2] = tmp[2][2];
-   tmp2[2][3] = tmp[2][3];
-   tmp2[3][0] = bg*tmp[0][0] + gamma*tmp[3][0];
-   tmp2[3][1] = bg*tmp[0][1] + gamma*tmp[3][1];
-   tmp2[3][2] = bg*tmp[0][2] + gamma*tmp[3][2]; 
-   tmp2[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
+   L_boost_3 (tmp2, bg, gamma);
 
-   ///if (tid == 388) {
-      ///printf ("Lnew: ");
-      ///for (int i = 0; i < 4; i++) {
-      ///   for (int j = 0; j < 4; j++) {
-      ///      printf ("L[%d][%d]: %lf\n ", i, j, Lnew->l[i][j]);
-      ///   }
-      ///}
-      ///printf ("\n");
-   ///}
+   double tmp3[4][4];
+   L_multiply (tmp3, tmp2, tmp);
+
    struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
-   ///memset (Lnew, 0, 16 * sizeof(double));
-   ///for (int i = 0; i < 4; i++) {
-   ///   for (int j = 0; j < 4; j++) {
-   ///      for (int k = 0; k < 4; k++) {
-   ///         Lnew->l[i][j] += L0->l[i][k] * tmp2[k][j];
-   ///      }
-   ///   }
-   ///}
-   L_multiply (Lnew, L0, tmp2);
+   L_multiply (Lnew, L0, tmp3);
 }
 
 
@@ -1145,22 +1102,6 @@ __global__ void _create_boosts_inv_firststep_wo_friends (size_t N, double sqrts,
 
    struct boost *L1 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
    L_boost_3 (L1, -bg, gamma);
-   //L1->l[0][0] = gamma; 
-   //L1->l[0][1] = 0;
-   //L1->l[0][2] = 0;
-   //L1->l[0][3] = -bg;
-   //L1->l[1][0] = 0;
-   //L1->l[1][1] = gamma;
-   //L1->l[1][2] = 0;
-   //L1->l[1][3] = 0;
-   //L1->l[2][0] = 0;
-   //L1->l[2][1] = 0;
-   //L1->l[2][2] = gamma;
-   //L1->l[2][3] = 0;
-   //L1->l[3][0] = -bg;
-   //L1->l[3][1] = 0;
-   //L1->l[3][2] = 0;
-   //L1->l[3][3] = gamma;
 }
 
 
@@ -1217,22 +1158,6 @@ __global__ void _create_boosts_inv_step_wo_friends (size_t N, double sqrts, int 
    factors[DN_BRANCHES * tid] *= f;
 
    double L1[4][4];
-   ///L1[0][0] = gamma;
-   ///L1[0][1] = -bg * st0 * cp0;
-   ///L1[0][2] = -bg * st0 * sp0;
-   ///L1[0][3] = -bg * ct0;
-   ///L1[1][0] = 0;
-   ///L1[1][1] = ct0 * cp0;
-   ///L1[1][2] = ct0 * sp0;
-   ///L1[1][3] = -st0;
-   ///L1[2][0] = 0;
-   ///L1[2][1] = -sp0;
-   ///L1[2][2] = cp0;
-   ///L1[2][3] = 0;
-   ///L1[3][0] = -bg;
-   ///L1[3][1] = gamma * st0 * cp0;
-   ///L1[3][2] = gamma * st0 * sp0;
-   ///L1[3][3] = gamma * ct0;
    L_r3_r2_b3 (L1, -bg, gamma, ct0, -st0, cp0, -sp0);
 
    struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
