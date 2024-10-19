@@ -243,7 +243,6 @@ void extract_boost_origins (std::vector<boost_cmd_t> *cmd_list, int *friends, in
    if (has_children[channel][branch_idx]) {
       int k1 = daughters1[channel][branch_idx];
       int k2 = daughters2[channel][branch_idx];
-      if (channel == 43) printf ("k1: %d, k2: %d, branch_idx: %d\n", k1, k2, branch_idx);
       boost_cmd_t b;
       b.b[0] = branch_idx == ROOT_BRANCH ? 0 : search_in_igather(channel, branch_idx);
       b.b[1] = *boost_counter;
@@ -873,7 +872,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
       int ffriend = cmd[BOOST_O_STRIDE*n_cmd*channel + BOOST_O_STRIDE*c + 3];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
       ///if (tid == 388) printf ("msq: %lf\n", msq[DN_BRANCHES * tid + branch_idx]);
-      if (tid == 388) printf ("branch_idx: %d, friend: %d\n", branch_idx, ffriend);
+      ///if (tid == 388) printf ("branch_idx: %d, friend: %d\n", branch_idx, ffriend);
       double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
       double bg = m > 0 ? p / m : 0;
       double gamma = sqrt (1 + bg * bg);
@@ -889,8 +888,8 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
       x = xc->x[xtid];
       double *b = mappings_d[channel].b[branch_idx].a;
       mappings_d[channel].comp_ct[branch_idx](x, sqrts * sqrts, b, &ct, &st, &f);
-      if (tid == 388) printf ("ct: %lf, st: %lf\n", ct, st);
-      if (tid == 388) printf ("bg: %lf, gamma: %lf\n", bg, gamma);
+      ///if (tid == 388) printf ("ct: %lf, st: %lf\n", ct, st);
+      ///if (tid == 388) printf ("bg: %lf, gamma: %lf\n", bg, gamma);
       factors[DN_BRANCHES * tid] *= f;
 
       if (ffriend == 0) {
@@ -928,11 +927,11 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
          double friend_axis[3];
          double ref_axis[3] = {0, 0, 1};
-         if (tid == 388) {
-             printf ("ffriend: %d\n", ffriend);
-             printf ("L00: %lf, L01: %lf, L02: %lf, L03: %lf\n", L0->l[0][0], L0->l[0][1], L0->l[0][2], L0->l[0][3]);
-             printf ("L30: %lf, L31: %lf, L32: %lf, L33: %lf\n", L0->l[3][0], L0->l[3][1], L0->l[3][2], L0->l[3][3]);
-         }
+         ///if (tid == 388) {
+         ///    printf ("ffriend: %d\n", ffriend);
+         ///    printf ("L00: %lf, L01: %lf, L02: %lf, L03: %lf\n", L0->l[0][0], L0->l[0][1], L0->l[0][2], L0->l[0][3]);
+         ///    printf ("L30: %lf, L31: %lf, L32: %lf, L33: %lf\n", L0->l[3][0], L0->l[3][1], L0->l[3][2], L0->l[3][3]);
+         ///}
 
          double E = sqrts / 2;
          double p = ffriend * E;
@@ -940,7 +939,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          friend_axis[0] = -L0->l[0][1] * E + L0->l[3][1] * p;
          friend_axis[1] = -L0->l[0][2] * E + L0->l[3][2] * p;
          friend_axis[2] = (-bg*L0->l[0][0] - gamma*L0->l[0][3]) * E + (-bg*L0->l[3][0] + gamma*L0->l[3][3]) * p;
-         if (tid == 388) printf ("axis: %lf %lf %lf\n", friend_axis[0], friend_axis[1], friend_axis[2]);
+         ///if (tid == 388) printf ("axis: %lf %lf %lf\n", friend_axis[0], friend_axis[1], friend_axis[2]);
 
          double abs_f = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1] + friend_axis[2]*friend_axis[2]);
          friend_axis[0] /= abs_f;
@@ -952,8 +951,8 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          ///double st_ref = sqrt(1-ct_ref*ct_ref);
          double st_ref = sqrt(friend_axis[0]*friend_axis[0] + friend_axis[1]*friend_axis[1]);
          double rot_axis[3] = {-friend_axis[1] / st_ref, friend_axis[0] / st_ref, 0};
-         if (tid == 388) printf ("ct_ref: %lf %lf\n", ct_ref, ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0]);
-         if (tid == 388) printf ("st_ref: %lf\n", st_ref);
+         ///if (tid == 388) printf ("ct_ref: %lf %lf\n", ct_ref, ct_ref + (1-ct_ref)*rot_axis[0]*rot_axis[0]);
+         ///if (tid == 388) printf ("st_ref: %lf\n", st_ref);
 
          double R[4][4];
          R[0][0] = 1;
@@ -973,14 +972,14 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          R[3][2] = -R[2][3];
          R[3][3] = ct_ref;
 
-         if (tid == 388) {
+         ///if (tid == 388) {
             ///printf ("R: ");
             ///for (int i = 0; i < 4; i++) {
             ///   for (int j = 0; j < 4; j++) {
             ///      printf ("R[%d][%d] = %lf\n", i, j, R[i][j]);
             ///   }
             ///}
-         }
+         ///}
 
 
          double L1[4][4];
@@ -1030,7 +1029,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
          tmp2[3][2] = bg*tmp[0][2] + gamma*tmp[3][2]; 
          tmp2[3][3] = bg*tmp[0][3] + gamma*tmp[3][3];
 
-         if (tid == 388) {
+         ///if (tid == 388) {
             ///printf ("Lnew: ");
             ///for (int i = 0; i < 4; i++) {
             ///   for (int j = 0; j < 4; j++) {
@@ -1038,7 +1037,7 @@ __global__ void _create_boosts (size_t N, double sqrts, int *channels, int *cmd,
             ///   }
             ///}
             ///printf ("\n");
-         }
+         ///}
          struct boost *Lnew = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
          memset (Lnew, 0, 16 * sizeof(double));
          for (int i = 0; i < 4; i++) {
@@ -1132,7 +1131,7 @@ __global__ void _create_boosts_inv_firststep_with_friends (size_t N, double sqrt
    n[2] = pf[3];
    double gamma = sqrt(1 + bg * bg);
    n[2] = n[2] * gamma + pf[0] * bg;
-   if (tid == 388) printf ("axis: %lf %lf %lf\n", n[0], n[1], n[2]);
+   ///if (tid == 388) printf ("axis: %lf %lf %lf\n", n[0], n[1], n[2]);
 
    
    ///phi[DN_BOOSTS * tid + boost_idx] = azimuthal_angle(n);
@@ -1154,7 +1153,8 @@ __global__ void _create_boosts_inv_firststep_with_friends (size_t N, double sqrt
 
 __global__ void _create_boosts_inv_step_wo_friends (size_t N, double sqrts, int channel, int *channels, int i_cmd, xcounter_t *xc, 
                                     double *phi, double *ct, double *st,
-                                    int *cb_cmd, int n_cb_cmd, double *msq, double *p_decay, double *prt,
+                                    int *cb_cmd, int n_cb_cmd, int *ab_cmd, int n_ab_cmd,
+                                    double *msq, double *p_decay, double *prt,
                                     int *i_gather, double *Ld, double *factors) {
    size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
@@ -1162,8 +1162,18 @@ __global__ void _create_boosts_inv_step_wo_friends (size_t N, double sqrts, int 
    if (cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 3] != 0) return; // Has Friend
 
    int branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 0];
-   int daughter_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 2];
+   ///int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_cmd + 2];
+   int i_a_cmd = 0;
+   int daughter_idx = -1;
+   while (i_a_cmd < n_ab_cmd && daughter_idx < 0) {
+      if (ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 1] == branch_idx) {
+         daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 2];
+      }
+      i_a_cmd++;
+   }
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
+   ///if (tid == 0 && channel == 43) printf ("WITHOUT FRIEND: %d %d %d %d\n", branch_idx, i_gather[DN_BRANCHES * channel + branch_idx],
+   ///                                        daughter_idx, i_gather[DN_BRANCHES * channel + daughter_idx]);
    double p = p_decay[DN_BRANCHES * tid + branch_idx];
    double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
    double bg = m > 0 ? p / m : 0;
@@ -1220,7 +1230,8 @@ __global__ void _create_boosts_inv_step_wo_friends (size_t N, double sqrts, int 
 
 __global__ void _create_boosts_inv_step_with_friends (size_t N, double sqrts, int channel, int *channels, int i_cmd, xcounter_t *xc, 
                                     double *phi, double *ct, double *st,
-                                    int *cb_cmd, int n_cb_cmd, double *msq, double *p_decay, double *prt,
+                                    int *cb_cmd, int n_cb_cmd, int *ab_cmd, int n_ab_cmd,
+                                    double *msq, double *p_decay, double *prt,
                                     int *i_gather, double *Ld, double *factors) {
    size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
    if (tid >= N) return;
@@ -1229,8 +1240,21 @@ __global__ void _create_boosts_inv_step_with_friends (size_t N, double sqrts, in
    if (ffriend == 0) return; // Has no Friend
 
    int branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 0];
-   int daughter_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 2];
+   ///if (tid == 0 && channel == 43) printf ("branch_idx: %d\n", branch_idx
+   int i_a_cmd = 0;
+   int daughter_idx = -1;
+   while (i_a_cmd < n_ab_cmd && daughter_idx < 0) {
+      if (ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 1] == branch_idx) {
+         daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 2];
+      }
+      i_a_cmd++;
+   }
+   ///int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_cmd + 2];
+   ///int daughter_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*i_cmd + 2];
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
+   ///int prt_idx = i_gather[DN_BRANCHES * channel + branch_idx];
+   ///if (tid == 0 && channel == 43) printf ("WITH FRIEND: %d %d %d %d %d\n", branch_idx, i_gather[DN_BRANCHES * channel + branch_idx], 
+   ///                                       daughter_idx, i_gather[DN_BRANCHES * channel + daughter_idx]);
 
    double p = p_decay[DN_BRANCHES * tid + branch_idx];
    double m = sqrt(msq[DN_BRANCHES * tid + branch_idx]);
@@ -1271,7 +1295,7 @@ __global__ void _create_boosts_inv_step_with_friends (size_t N, double sqrts, in
    gamma = sqrt(1 + bg*bg);
    fraxis[2] = fraxis[2] * gamma - pf[0] * bg;
 
-   ///if (tid == 0) printf ("p1: %lf %lf %lf %lf\n", p1[0], p1[1], p1[2], p1[3]);
+   ///if (tid == 0 && channel == 43) printf ("p1(%d): %lf %lf %lf %lf\n", prt_idx, p1[0], p1[1], p1[2], p1[3]);
    ///if (tid == 0) printf ("pf: %lf %lf %lf %lf\n", pf[0], pf[1], pf[2], pf[3]);
    ///if (tid == 0) printf ("cp0: %lf, sp0: %lf, ct0: %lf, st0: %lf, bg: %lf\n", cp0, sp0, ct0, st0, bg);
    ///if (tid == 0) printf ("axis: %lf %lf %lf\n", fraxis[0], fraxis[1], fraxis[2]);
@@ -1284,7 +1308,16 @@ __global__ void _create_boosts_inv_step_with_friends (size_t N, double sqrts, in
    L_r3_r2_b3 (L_tmp, -bg, gamma, ct0, -st0, cp0, -sp0);
 
    double L_friend[4][4];
-   L_multiply (L_friend, R, L_tmp);
+   ///L_multiply (L_friend, R, L_tmp);
+   for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 4; j++) {
+         L_friend[i][j] = 0;
+         for (int k = 0; k < 4; k++) {
+            L_friend[i][j] += R[i][k] * L_tmp[k][j]; 
+         }
+      }
+   }
+
 
    ///if (tid == 0 && channel == 43) {
    ///   printf ("L_friend: \n");
@@ -1473,7 +1506,7 @@ __global__ void _apply_boost_targets (size_t N, int *channels, int *cmd, int n_c
       int prt_idx = i_gather[DN_BRANCHES * channel + branch_idx];
       double p = p_decay[DN_BRANCHES * tid + branch_idx];
       double E = sqrt(msq[DN_BRANCHES * tid + branch_idx] + p * p);
-      if (tid == 388) printf ("apply: %d\n", prt_idx);
+      ///if (tid == 388) printf ("apply: %d\n", prt_idx);
       for (int i = 0; i < 4; i++) {
          prt[DPRT_STRIDE * tid + 4 * prt_idx + i] = Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i] * E
                                                   + Ld[16*DN_BOOSTS*tid + 16*boost_idx + 4*i + 3] * p;
@@ -1671,10 +1704,12 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
             _create_boosts_inv_step_wo_friends<<<nb,nt>>> (n_events, sqrts, c, channels_d, cc, xc,
                                                            phi_d, ct_d, st_d,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
+                                                           cmds_boost_t_d, N_LAMBDA_OUT,
                                                            msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
-            _create_boosts_inv_step_with_friends<<<nb,nt>>> (n_events, sqrts, c, channels_d, cc, xc,
+            _create_boosts_inv_step_with_friends<<<nb*2,nt/2>>> (n_events, sqrts, c, channels_d, cc, xc,
                                                            phi_d, ct_d, st_d,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
+                                                           cmds_boost_t_d, N_LAMBDA_OUT,
                                                            msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
 
             cudaDeviceSynchronize();
