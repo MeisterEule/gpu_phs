@@ -620,12 +620,12 @@ __device__ void L_boost_3 (struct boost *L, double bg, double gamma) {
    L->l[0][2] = 0;
    L->l[0][3] = bg;
    L->l[1][0] = 0;
-   L->l[1][1] = gamma;
+   L->l[1][1] = 1;
    L->l[1][2] = 0;
    L->l[1][3] = 0;
    L->l[2][0] = 0;
    L->l[2][1] = 0;
-   L->l[2][2] = gamma;
+   L->l[2][2] = 1;
    L->l[2][3] = 0;
    L->l[3][0] = bg;
    L->l[3][1] = 0;
@@ -639,12 +639,12 @@ __device__ void L_boost_3 (double L[4][4], double bg, double gamma) {
    L[0][2] = 0;
    L[0][3] = bg;
    L[1][0] = 0;
-   L[1][1] = gamma;
+   L[1][1] = 1;
    L[1][2] = 0;
    L[1][3] = 0;
    L[2][0] = 0;
    L[2][1] = 0;
-   L[2][2] = gamma;
+   L[2][2] = 1;
    L[2][3] = 0;
    L[3][0] = bg;
    L[3][1] = 0;
@@ -1072,7 +1072,15 @@ __global__ void _create_boosts_inv_firststep_wo_friends (size_t N, double sqrts,
    if (cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 3] != 0) return; // Has Friend
 
    int branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0];
-   int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
+   ///int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
+   int i_a_cmd = 0;
+   int daughter_idx = -1;
+   while (i_a_cmd < n_ab_cmd && daughter_idx < 0) {
+      if (ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 1] == branch_idx) {
+         daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 2];
+      }
+      i_a_cmd++;
+   }
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
    int boost_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 1];
    int parent_boost = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 2];
@@ -1114,7 +1122,15 @@ __global__ void _create_boosts_inv_firststep_with_friends (size_t N, double sqrt
    if (ffriend == 0) return; // Has no Friend
 
    int branch_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0];
-   int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
+   int i_a_cmd = 0;
+   int daughter_idx = -1;
+   while (i_a_cmd < n_ab_cmd && daughter_idx < 0) {
+      if (ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 1] == branch_idx) {
+         daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*i_a_cmd + 2];
+      }
+      i_a_cmd++;
+   }
+   ///int daughter_idx = ab_cmd[3*n_ab_cmd*channel + 3*0 + 2];
    int prt_idx = i_gather[DN_BRANCHES * channel + daughter_idx];
    int boost_idx = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 1];
    int parent_boost = cb_cmd[BOOST_O_STRIDE*n_cb_cmd*channel + BOOST_O_STRIDE*0 + 2];
