@@ -1593,24 +1593,35 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
    cudaMemset(msq_d, 0, N_BRANCHES * n_events * sizeof(double));
    double *p_decay;
    cudaMalloc((void**)&p_decay, N_BRANCHES * n_events * sizeof(double));
+   cudaMemset(p_decay, 0, N_BRANCHES * n_events * sizeof(double));
 
    double *local_factors_d;
    cudaMalloc ((void**)&local_factors_d, N_BRANCHES * n_events * sizeof(double));
+   cudaMemset (local_factors_d, 0, N_BRANCHES * n_events * sizeof(double));
+
    double *all_factors_d = NULL;
    if (input_control.do_inverse_mapping) {
       cudaMalloc((void**)&all_factors_d, n_channels * n_events * sizeof(double));
+      cudaMemset(all_factors_d, 0, n_channels * n_events * sizeof(double));
    } else {
       ///cudaMalloc((void**)&all_factors_d, N_BRANCHES * n_events * sizeof(double));
    }
    double *all_x_d = NULL;
-   if (input_control.do_inverse_mapping) cudaMalloc((void**)&all_x_d, n_channels * n_x * n_events * sizeof(double));
+   if (input_control.do_inverse_mapping) {
+      cudaMalloc((void**)&all_x_d, n_channels * n_x * n_events * sizeof(double));
+      cudaMemset(all_x_d, 0, n_channels * n_x * n_events * sizeof(double));
+   }
+
    double *volumes_d;
    cudaMalloc ((void**)&volumes_d, N_BRANCHES * n_events * sizeof(double));
+   cudaMemset (volumes_d, 0, N_BRANCHES * n_events * sizeof(double));
    bool *oks_d;
    cudaMalloc ((void**)&oks_d, n_events * sizeof(bool));
+   cudaMemset (oks_d, 0, n_events * sizeof(bool));
 
    double *Ld;
    cudaMalloc((void**)&Ld, n_events * 16 * N_BOOSTS * sizeof(double));
+   cudaMemset(Ld, 0, n_events * 16 * N_BOOSTS * sizeof(double));
 
    int *channels_d;
    cudaMalloc((void**)&channels_d, n_events * sizeof(int));
@@ -1710,6 +1721,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
                                                         phi_d, ct_d, st_d,
                                                         cmds_boost_o_d, N_LAMBDA_IN, cmds_boost_t_d, N_LAMBDA_OUT,
                                                         msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+         cudaDeviceSynchronize();
          _create_boosts_inv_firststep_with_friends<<<nb,nt>>> (n_events, sqrts, c, channels_d, xc,
                                                         phi_d, ct_d, st_d,
                                                         cmds_boost_o_d, N_LAMBDA_IN, cmds_boost_t_d, N_LAMBDA_OUT,
@@ -1722,6 +1734,7 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
                                                            cmds_boost_t_d, N_LAMBDA_OUT,
                                                            msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+            cudaDeviceSynchronize();
             _create_boosts_inv_step_with_friends<<<nb*2,nt/2>>> (n_events, sqrts, c, channels_d, cc, xc,
                                                            phi_d, ct_d, st_d,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
@@ -1730,11 +1743,6 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
 
             cudaDeviceSynchronize();
          }
-
-         ///_create_boosts_inv_step_wo_friends<<<nb,nt>>> (n_events, sqrts, c, channels_d, 0, xc,
-         ///                                               phi_d, ct_d, st_d,
-         ///                                               cmds_boost_o_d, N_LAMBDA_IN, cmds_boost_t_d, N_LAMBDA_OUT,
-         ///                                               msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
 
          _move_factors<<<nb,nt>>>(n_events, channels_d, c, n_channels, local_factors_d, all_factors_d);
          cudaDeviceSynchronize();

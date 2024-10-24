@@ -85,13 +85,6 @@ extern "C" void c_whizard_fill_tree_structure (int *channel, int *w_daughters1, 
      has_children[c][i] = w_has_children[i];
      friends[c][i] = w_friends[i];
   }
-  if (c == 43) {
-     printf ("Channel 44's friends: ");
-     for (int i = 0; i < N_PRT; i++) {
-        printf ("%d ", friends[43][i]);
-     }
-     printf ("\n");
-  }
 } 
 
 extern "C" void c_whizard_init_channel_ids (int *batch_size, int *n_channels, int *channel_limits) {
