@@ -1708,6 +1708,8 @@ void gen_phs_from_x_gpu (bool for_whizard, size_t n_events,
       cudaMemset (phi_d, 0, N_BOOSTS * n_events * sizeof(double));
       cudaMalloc ((void**)&ct_d, N_BOOSTS * n_events * sizeof(double));
       cudaMalloc ((void**)&st_d, N_BOOSTS * n_events * sizeof(double));
+      cudaMemset (ct_d, 0, N_BOOSTS * n_events * sizeof(double));
+      cudaMemset (st_d, 0, N_BOOSTS * n_events * sizeof(double));
       for (int c = 0; c < n_channels; c++) {
          _reset_x<<<1,1>>> (xc, n_events);
          _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, i_gather_d, prt_d, msq_d);
