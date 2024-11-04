@@ -1236,8 +1236,10 @@ __global__ void _create_boosts_inv_step_wo_friends (size_t N, double sqrts, int 
 
    for (int i = 0; i < 4; i++) {
       for (int j = 0; j < 4; j++) {
+         Lnew->l[i][j] = 0;
          for (int k = 0; k < 4; k++) {
-            Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+            ///Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
+            Lnew->l[i][j] += L1[i][k] * L0->l[k][j];
          }
       }
    }
@@ -1374,6 +1376,7 @@ __global__ void _create_boosts_inv_step_with_friends (size_t N, double sqrts, in
 
    for (int i = 0; i < 4; i++) {
       for (int j = 0; j < 4; j++) {
+         Lnew->l[i][j] = 0;
          for (int k = 0; k < 4; k++) {
             Lnew->l[i][j] += L0->l[i][k] * L_friend[k][j];
          }
@@ -1502,6 +1505,7 @@ __global__ void _create_boosts_inv (size_t N, double sqrts, int channel, int *ch
 
      for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
+           Lnew->l[i][j] = 0;
            for (int k = 0; k < 4; k++) {
               Lnew->l[i][j] += L0->l[i][k] * L1[k][j];
            }

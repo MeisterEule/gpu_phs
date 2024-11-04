@@ -51,8 +51,6 @@ extern "C" void c_whizard_init_mappings () {
       mappings_host[c].mass_sum = (double*)malloc(N_PRT_OUT * sizeof(double));
       memset (mappings_host[c].mass_sum, 0, N_PRT_OUT * sizeof(double));
    }
-   ///fflush(stdout);
-   ///sleep(1);
 }
 
 extern "C" void c_whizard_fill_mapping (int *channel, int *map_ids, double *masses, double *widths) {
