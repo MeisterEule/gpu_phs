@@ -410,7 +410,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double sqrts) {
    }
    cudaFree(tmp);
 
-   double *mass_sum = (double*)malloc(N_PRT * sizeof(double));
    double *m, *w, *ms;
    cudaMalloc((void**)&m, N_BRANCHES * sizeof(double));
    cudaMalloc((void**)&w, N_BRANCHES * sizeof(double));

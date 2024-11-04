@@ -162,7 +162,7 @@ extern "C" void c_whizard_show_module () {
       printf ("\n");
 
       printf (" mass_sum: ");
-      for (int i = 0; i < N_PRT; i++) {
+      for (int i = 0; i < N_PRT_OUT; i++) {
          printf ("%lf ", mappings_host[c].mass_sum[i]);
       }
       printf ("\n");
@@ -181,6 +181,15 @@ extern "C" void c_whizard_show_module () {
       printf ("\n");
       for (int i = 0; i < N_PRT; i++) {
          printf ("%d ", has_children[c][i]);
+      }
+      printf ("\n");
+   }
+
+   printf ("Friends: \n");
+   for (int c = 0; c < N_CHANNELS; c++) {
+      printf ("channel %d: ", c);
+      for (int i = 0; i < N_PRT; i++) {
+         printf ("%d ", friends[c][i]);
       }
       printf ("\n");
    }
