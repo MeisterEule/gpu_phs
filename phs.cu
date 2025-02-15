@@ -97,6 +97,22 @@ __global__ void _init_mappings (int n_channels) {
    }
 }
 
+__global__ void _free_mappings (int n_channels) {
+   for (int c = 0; c < n_channels; c++) {
+      free(mappings_d[c].map_id);
+      free(mappings_d[c].comp_msq);
+      free(mappings_d[c].comp_msq_inv);
+      free(mappings_d[c].comp_ct);
+      free(mappings_d[c].comp_ct_inv);
+      free(mappings_d[c].a);
+      free(mappings_d[c].b);
+      free(mappings_d[c].masses);
+      free(mappings_d[c].widths);
+      free(mappings_d[c].mass_sum);
+  }
+  free(mappings_d);
+}
+
 __global__ void _fill_mapids (int channel, int n_part, int *map_ids) {
    for (int i = 0; i < n_part; i++) {
       mappings_d[channel].map_id[i] = map_ids[i];
@@ -1838,6 +1854,7 @@ void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events,
    cudaFree(channels_d);
    cudaFree(i_gather_d);
    cudaFree(flv_masses_d);
+   _free_mappings<<<1,1>>> (n_channels);
 }
 
 double *get_momentum_device_pointer () {
