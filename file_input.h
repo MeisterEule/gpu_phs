@@ -21,6 +21,7 @@ typedef struct {
   bool check_cpu;
   double compare_tolerance;
   bool do_inverse_mapping;
+  bool requires_boost_to_lab;
 } input_control_t;
 
 extern input_control_t input_control;

@@ -6,10 +6,10 @@
 #define TWOPI2    39.47841760435743447534
 #define TWOPI5  9792.62991312900650440772
 
-typedef void mapping_msq_sig (double, double, double, double, double, double, double*, double*, double*);
-typedef void mapping_msq_inv_sig (double, double, double, double, double, double, double*, double*, double*);
-typedef void mapping_ct_sig (double, double, double *, double*, double*, double*);
-typedef void mapping_ct_inv_sig (double, double, double, double*, double*, double*);
+typedef void mapping_msq_sig (double, double, double, double, double, double, double*, double*);
+typedef void mapping_msq_inv_sig (double, double, double, double, double, double, double*, double*);
+typedef void mapping_ct_sig (double, double, double, double*, double*, double*);
+typedef void mapping_ct_inv_sig (double, double, double, double, double*, double*);
 
 
 typedef struct {

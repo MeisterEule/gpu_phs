@@ -312,7 +312,7 @@ __global__ void _init_first_boost (size_t N, double *L) {
    LL->l[3][3] = 1;
 }
 
-void init_phs_gpu (int n_channels, mapping_t *map_h, double *sqrts) {
+void init_phs_gpu (int n_channels, mapping_t *map_h) {
 
    _set_device_constants<<<1,1>>>(ROOT_BRANCH, N_EXT_IN, N_EXT_OUT,
                                   N_PRT, N_PRT_OUT, PRT_STRIDE, N_BRANCHES,
@@ -441,7 +441,6 @@ void init_phs_gpu (int n_channels, mapping_t *map_h, double *sqrts) {
    cudaFree(w);
    cudaFree(ms);
    cudaDeviceSynchronize();
-   _init_mapping_constants<<<1,1>>> (n_channels, N_BRANCHES, sqrts[0]);
    for (int c = 0; c < n_channels; c++) {
       set_mappings(c);
    }
@@ -533,13 +532,12 @@ __global__ void _apply_msq (size_t N, double *sqrts, int *channels, int *cmd, in
      int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
      size_t xtid = xc->nx * tid + xc->id_gpu[tid]++;
      double x = xc->x[xtid];
-     double *a = mappings_d[channel].a[branch_idx].a;
      double m = mappings_d[channel].masses[branch_idx];
      double w = mappings_d[channel].widths[branch_idx];
      double m_min = mappings_d[channel].mass_sum[branch_idx];
      double m_max = sqrts[tid] - m_tot + m_min;
      double f;
-     mappings_d[channel].comp_msq[branch_idx](x, sqrts[tid] * sqrts[tid], m, w, m_min*m_min, m_max*m_max, a,
+     mappings_d[channel].comp_msq[branch_idx](x, sqrts[tid] * sqrts[tid], m, w, m_min*m_min, m_max*m_max,
                                               &msq[DN_BRANCHES * tid + branch_idx], &f);
      factors[DN_BRANCHES * tid + branch_idx] *= f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2]; 
      volumes[DN_BRANCHES * tid + branch_idx] *= volumes[DN_BRANCHES * tid + k1] * volumes[DN_BRANCHES * tid + k2] * sqrts[tid] * sqrts[tid] / (4 * TWOPI2);
@@ -587,7 +585,6 @@ __global__ void _apply_msq_inv (size_t N, int channel, xcounter_t *xc, double *m
      int k1 = cmd[3 * n_cmd * channel + 3 * c];
      int k2 = cmd[3 * n_cmd * channel + 3 * c + 1];
      int branch_idx = cmd[3 * n_cmd * channel + 3 * c + 2]; 
-     double *a = mappings_d[channel].a[branch_idx].a;
      double m = mappings_d[channel].masses[branch_idx];
      double w = mappings_d[channel].widths[branch_idx];
      double m_min = mappings_d[channel].mass_sum[branch_idx];
@@ -596,7 +593,7 @@ __global__ void _apply_msq_inv (size_t N, int channel, xcounter_t *xc, double *m
      size_t xtid = xc->nx * tid + xc->id_gpu[tid]++;
      double *x = &(xc->x[xtid]);
      mappings_d[channel].comp_msq_inv[branch_idx](msq[DN_BRANCHES * tid + branch_idx], m_min*m_min, m_max*m_max, sqrts[tid]*sqrts[tid],
-                                                  m, w, a, x, &f);
+                                                  m, w, x, &f);
      factors[DN_BRANCHES * tid + branch_idx] = f * factors[DN_BRANCHES * tid + k1] * factors[DN_BRANCHES * tid + k2];
 
      double msq0 = msq[DN_BRANCHES * tid + branch_idx];
@@ -794,8 +791,7 @@ __global__ void _create_boosts_step_wo_friend (size_t N, double *sqrts, int *cha
    double ct, st, f;
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = xc->x[xtid];
-   double *b = mappings_d[channel].b[branch_idx].a;
-   mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], b, &ct, &st, &f);
+   mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], mappings_d[channel].masses[branch_idx], &ct, &st, &f);
    ///if (tid == 388) printf ("ct: %lf, st: %lf\n", ct, st);
    ///if (tid == 388) printf ("bg: %lf, gamma: %lf\n", bg, gamma);
    factors[DN_BRANCHES * tid] *= f;
@@ -833,8 +829,7 @@ __global__ void _create_boosts_step_with_friend (size_t N, double *sqrts, int *c
    double ct, st, f;
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = xc->x[xtid];
-   double *b = mappings_d[channel].b[branch_idx].a;
-   mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], b, &ct, &st, &f);
+   mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], mappings_d[channel].masses[branch_idx], &ct, &st, &f);
    factors[DN_BRANCHES * tid] *= f;
 
    struct boost *L0 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * parent_boost]);
@@ -901,8 +896,7 @@ __global__ void _create_boosts (size_t N, double *sqrts, int *channels, int *cmd
       double ct, st, f;
       xtid = xc->nx * tid + xc->id_gpu[tid]++;
       x = xc->x[xtid];
-      double *b = mappings_d[channel].b[branch_idx].a;
-      mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], b, &ct, &st, &f);
+      mappings_d[channel].comp_ct[branch_idx](x, sqrts[tid] * sqrts[tid], mappings_d[channel].masses[branch_idx], &ct, &st, &f);
       ///if (tid == 388) printf ("ct: %lf, st: %lf\n", ct, st);
       ///if (tid == 388) printf ("bg: %lf, gamma: %lf\n", bg, gamma);
       factors[DN_BRANCHES * tid] *= f;
@@ -1116,10 +1110,10 @@ __global__ void _create_boosts_inv_firststep_wo_friends (size_t N, double *sqrts
    *x = phi[DN_BOOSTS * tid + boost_idx] / TWOPI;
    polar_angle_ct(n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
    double f;
-   double *b = mappings_d[channel].b[branch_idx].a;
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = &(xc->x[xtid]);
-   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts[tid]*sqrts[tid], b, x, &f);
+   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], 
+                                               sqrts[tid]*sqrts[tid], mappings_d[channel].masses[branch_idx], x, &f);
    factors[DN_BRANCHES * tid] *= f;
 
    struct boost *L1 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
@@ -1240,9 +1234,9 @@ __global__ void _create_boosts_inv_step_wo_friends (size_t N, double *sqrts, int
    polar_angle_ct (n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = &(xc->x[xtid]);
-   double *b = mappings_d[channel].b[branch_idx].a;
    double f;
-   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts[tid]*sqrts[tid], b, x, &f);
+   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], 
+                                               sqrts[tid]*sqrts[tid], mappings_d[channel].masses[branch_idx], x, &f);
    factors[DN_BRANCHES * tid] *= f;
 
    double L1[4][4];
@@ -1380,9 +1374,9 @@ __global__ void _create_boosts_inv_step_with_friends (size_t N, double *sqrts, i
    polar_angle_ct (n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = &(xc->x[xtid]);
-   double *b = mappings_d[channel].b[branch_idx].a;
    double f;
-   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts[tid]*sqrts[tid], b, x, &f);
+   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx],
+                                               sqrts[tid]*sqrts[tid], mappings_d[channel].masses[branch_idx], x, &f);
    factors[DN_BRANCHES * tid] *= f;
 
    ///double L1[4][4];
@@ -1431,10 +1425,10 @@ __global__ void _create_boosts_inv (size_t N, double *sqrts, int channel, int *c
    *x = phi[DN_BOOSTS * tid + boost_idx] / TWOPI;
    polar_angle_ct(n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
    double f;
-   double *b = mappings_d[channel].b[branch_idx].a;
    xtid = xc->nx * tid + xc->id_gpu[tid]++;
    x = &(xc->x[xtid]);
-   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts[tid]*sqrts[tid], b, x, &f);
+   mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx],
+                                               sqrts[tid]*sqrts[tid], mappings_d[channel].masses[branch_idx], x, &f);
    factors[DN_BRANCHES * tid] *= f;
 
    struct boost *L1 = (struct boost*)(&Ld[16 * DN_BOOSTS * tid + 16 * boost_idx]);
@@ -1495,8 +1489,8 @@ __global__ void _create_boosts_inv (size_t N, double *sqrts, int channel, int *c
      polar_angle_ct (n, &ct[DN_BOOSTS * tid + boost_idx], &st[DN_BOOSTS * tid + boost_idx]);
      xtid = xc->nx * tid + xc->id_gpu[tid]++;
      x = &(xc->x[xtid]);
-     b = mappings_d[channel].b[branch_idx].a;
-     mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx], sqrts[tid]*sqrts[tid], b, x, &f);
+     mappings_d[channel].comp_ct_inv[branch_idx](ct[DN_BOOSTS * tid + boost_idx], st[DN_BOOSTS * tid + boost_idx],
+                                                 sqrts[tid]*sqrts[tid], mappings_d[channel].masses[branch_idx], x, &f);
      factors[DN_BRANCHES * tid] *= f;
 
      double L1[4][4];
@@ -1573,6 +1567,23 @@ __global__ void _combine_particles (size_t N, int this_channel, int *channels, i
    }
 }
 
+__global__ void _boost_to_lab_frame (size_t N, double *E1, double *E2, double *prt) {
+   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   double bg = (E1[tid] - E2[tid]) / (2 * sqrt(E1[tid]*E2[tid]));
+   double gamma = sqrt(1 + bg*bg);
+   int idx = 1;
+   for (int i = 0; i < DN_EXT_OUT; i++) {
+      int i0 = 4*DN_PRT*tid + 4*(idx-1);
+      int i3 = 4*DN_PRT*tid + 4*(idx-1) + 3;
+      double p0 = gamma * prt[i0] + bg * prt[i3];
+      double p3 = bg * prt[i0] + gamma * prt[i3];
+      prt[i0] = p0;
+      prt[i3] = p3;
+      idx *= 2;
+   }
+}
+
 static double *prt_d = NULL;
 
 void reset_phs () {
@@ -1581,7 +1592,7 @@ void reset_phs () {
   cudaFree (prt_d); prt_d = NULL;
 }
 
-void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events, 
+void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h,
                          double *p_h, double *x_out) {
@@ -1621,7 +1632,19 @@ void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events,
 
    double *sqrts_d;
    cudaMalloc((void**)&sqrts_d, n_events * sizeof(double));
-   cudaMemcpy (sqrts_d, sqrts, n_events * sizeof(double), cudaMemcpyHostToDevice);
+   ///cudaMemcpy (sqrts_d, sqrts, n_events * sizeof(double), cudaMemcpyHostToDevice);
+   ///set_sqrts_d (n_events, E1_in, E2_in, sqrts_d);
+
+   double *E1_d, *E2_d;
+   cudaMalloc((void**)&E1_d, n_events * sizeof(double));
+   cudaMalloc((void**)&E2_d, n_events * sizeof(double));
+   cudaMemcpy(E1_d, E1_in, n_events * sizeof(double), cudaMemcpyHostToDevice);
+   cudaMemcpy(E2_d, E2_in, n_events * sizeof(double), cudaMemcpyHostToDevice);
+
+   int nt = 1024;
+   int nb = n_events / nt + 1;
+   set_sqrts_kernel<<<nb,nt>>>(n_events, E1_d, E2_d, sqrts_d);
+
 
    double *local_factors_d;
    cudaMalloc ((void**)&local_factors_d, N_BRANCHES * n_events * sizeof(double));
@@ -1670,8 +1693,8 @@ void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events,
    SIGNAL_CUDA_ERROR("INIT"); 
 
 
-   int nt = kernel_control.msq_threads;
-   int nb = n_events / nt + 1;
+   nt = kernel_control.msq_threads;
+   nb = n_events / nt + 1;
 
    int *tmp, *i_gather_d;
    tmp = (int*)malloc(N_BRANCHES * n_channels * sizeof(int));
@@ -1783,6 +1806,12 @@ void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events,
       cudaFree(st_d);
    }
 
+   cudaDeviceSynchronize();
+   nt = 1024;
+   nb = n_events / nt  + 1;
+   _boost_to_lab_frame<<<nb,nt>>>(n_events, E1_d, E2_d, prt_d);
+   cudaDeviceSynchronize();
+   
    START_TIMER(TIME_MEMCPY_OUT);
    // This can also be done on the device, primarily to avoid large temporary arrays.
    double *copy = (double*)malloc(4 * N_PRT * n_events * sizeof(double));
@@ -1829,6 +1858,8 @@ void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events,
 
    free(copy);
 
+   cudaFree(E1_d);
+   cudaFree(E2_d);
    cudaFree(x_d);
    cudaFree(id_d);
    cudaFree(xc);

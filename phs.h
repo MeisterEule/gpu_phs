@@ -54,10 +54,10 @@ int search_in_igather (int c, int x);
 
 void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
-void init_phs_gpu (int n_channels, mapping_t *map_h, double *sqrts);
+void init_phs_gpu (int n_channels, mapping_t *map_h);
 void reset_phs ();
 
-void gen_phs_from_x_gpu (bool for_whizard, double *sqrts, size_t n_events, 
+void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t n_events, 
                          int n_channels, int *channels, int n_x, double *x_h,
                          double *factors_h, double *volumes_h, bool *oks_h, double *p_h, double *x_out);
 

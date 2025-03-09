@@ -23,8 +23,12 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    fprintf (logfl[LOG_INPUT], "n_events in reference file: %ld\n", n_events);
 
    double *sqrts = (double*)malloc(n_events * sizeof(double));
+   double *E1 = (double*)malloc(n_events * sizeof(double));
+   double *E2 = (double*)malloc(n_events * sizeof(double));
    for (int i = 0; i < n_events; i++) {
-      sqrts[i] = 1000;
+      E1[i] = 500;
+      E2[i] = 500;
+      sqrts[i] = 2*sqrt(E1[i]*E2[i]);
    }
    double *x = (double*)malloc(n_x * n_events * sizeof(double));
 
@@ -66,9 +70,9 @@ void do_verify_against_whizard (const char *ref_file, int n_x, int n_channels, i
    double *x_out = (double*)malloc(n_events * n_x * n_channels_with_factor * sizeof(double));
 
    init_mapping_constants_cpu (n_channels, sqrts[0]);
-   init_phs_gpu(n_channels, mappings_host, sqrts);
+   init_phs_gpu(n_channels, mappings_host);
    double t1 = mysecond();
-   gen_phs_from_x_gpu (false, sqrts, n_events, n_channels, channels, n_x, x, factors, volumes, oks, p, x_out);
+   gen_phs_from_x_gpu (false, E1, E2, n_events, n_channels, channels, n_x, x, factors, volumes, oks, p, x_out);
    double t2 = mysecond();
 
    printf ("GPU: %lf sec\n", t2 - t1);
@@ -104,8 +108,12 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    size_t n_trial_events_tot = n_trial_events * n_channels;
 
    double *sqrts = (double*)malloc(n_events * sizeof(double));
+   double *E1 = (double*)malloc(n_events * sizeof(double));
+   double *E2 = (double*)malloc(n_events * sizeof(double));
    for (int i = 0; i < n_events; i++) {
-      sqrts[i] = 1000;
+      E1[i] = 500;
+      E2[i] = 500;
+      sqrts[i] = 2*sqrt(E1[i]*E2[i]);
    }
    init_mapping_constants_cpu (n_channels, sqrts[0]);
 
@@ -118,7 +126,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
       channels[i] = i / n_trial_events;
    }
 
-   init_phs_gpu(n_channels, mappings_host, sqrts);
+   init_phs_gpu(n_channels, mappings_host);
 
    double *p_gpu = (double*)malloc(4 * N_EXT_OUT * n_events * sizeof(double));
    double *factors_gpu = (double*)malloc(n_events * n_channels * sizeof(double)); 
@@ -136,7 +144,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
    printf ("Precondition grid with %d trials and %ld events / trial.\n", n_trials, n_trial_events);
    for (int i = 0; i < n_trials; i++) {
       rng_generate (n_channels, n_trial_events, n_x, x);
-      gen_phs_from_x_gpu (false, sqrts, n_trial_events_tot, n_channels, channels,
+      gen_phs_from_x_gpu (false, E1, E2, n_trial_events_tot, n_channels, channels,
                           n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu, x_out);
       // Count how many events return "ok". 
       n_ok = 0;
@@ -167,7 +175,7 @@ void do_verify_internal (size_t n_events_per_channel, int n_trials, size_t n_tri
 
    rng_generate (n_channels, n_events_per_channel, n_x, x);
    t1 = mysecond();
-   gen_phs_from_x_gpu (false, sqrts, n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu, x_out);
+   gen_phs_from_x_gpu (false, E1, E2, n_events, n_channels, channels, n_x, x, factors_gpu, volumes_gpu, oks_gpu, p_gpu, x_out);
    t2 = mysecond();
    printf ("GPU: %lf sec\n", t2 - t1);
    printf ("   Memcpy In: %lf\n", gpu_timers[TIME_MEMCPY_IN]);

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <unistd.h>
 
+#include "monitoring.h"
 #include "file_input.h"
 #include "phs.h"
 #include "global_phs.h"
@@ -89,6 +90,7 @@ extern "C" void c_whizard_init_channel_ids (int *batch_size, int *n_channels, in
    if (channel_ids != NULL) free (channel_ids);
    channel_ids = (int*)malloc(*batch_size * sizeof(int));
    int current_channel = 0;
+   while (channel_limits[current_channel] == 0) current_channel++;
    for (int i = 0; i < *batch_size; i++) {
       channel_ids[i] = current_channel;
       if (i + 1 == channel_limits[current_channel]) current_channel++;
@@ -101,15 +103,17 @@ extern "C" void c_whizard_set_threads (int *msq_threads, int *cb_threads, int *a
    kernel_control.ab_threads = *ab_threads;
 }
 
-extern "C" void c_whizard_init_gpu_phs (double *sqrts) {
-   init_phs_gpu (N_CHANNELS, mappings_host, sqrts);
+extern "C" void c_whizard_init_gpu_phs () {
+   init_phs_gpu (N_CHANNELS, mappings_host);
 }
 
-extern "C" void c_whizard_gen_phs_from_x_gpu (double *sqrts, int *n_events, int *n_channels, int *n_x, double *x,
+extern "C" void c_whizard_gen_phs_from_x_gpu (double *E1_in, double *E2_in, bool *requires_boost_to_lab, 
+                                              int *n_events, int *n_channels, int *n_x, double *x,
                                               double *factors, double *volumes, bool *oks,
                                               double *p, double *x_out) {
   input_control.do_inverse_mapping = true;
-  gen_phs_from_x_gpu (true, sqrts, (size_t)*n_events, *n_channels, channel_ids, *n_x, x,
+  input_control.requires_boost_to_lab = *requires_boost_to_lab;
+  gen_phs_from_x_gpu (true, E1_in, E2_in, (size_t)*n_events, *n_channels, channel_ids, *n_x, x,
                       factors, volumes, oks, p, x_out);
 }
 

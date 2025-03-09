@@ -86,21 +86,21 @@ module gpu_phs_whizard_interface
         integer(kind=c_int), intent(in) :: ab_threads
      end subroutine whizard_set_threads
 
-    subroutine whizard_init_gpu_phs (sqrts) &
+    subroutine whizard_init_gpu_phs () &
         bind(C, name='c_whizard_init_gpu_phs')
         import c_double
-        real(kind=c_double), intent(in), dimension(*) :: sqrts
     end subroutine whizard_init_gpu_phs
 
     subroutine whizard_reset_phs_generator () &
        bind (C, name='c_whizard_reset_generator')
     end subroutine whizard_reset_phs_generator
 
-    subroutine whizard_gen_phs_from_x_gpu (sqrts, n_events, n_channels, n_x, x, &
+    subroutine whizard_gen_phs_from_x_gpu (E1_in, E2_in, n_events, n_channels, n_x, x, &
                                            factors, volumes, oks, p, x_out) &
        bind(C, name='c_whizard_gen_phs_from_x_gpu')
        import c_int, c_bool, c_double
-       real(kind=c_double), dimension(*), intent(in) :: sqrts
+       real(kind=c_double), dimension(*), intent(in) :: E1_in
+       real(kind=c_double), dimension(*), intent(in) :: E2_in
        integer(kind=c_int), intent(in) :: n_events
        integer(kind=c_int), intent(in) :: n_channels
        integer(kind=c_int), intent(in) :: n_x
