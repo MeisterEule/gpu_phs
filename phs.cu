@@ -417,6 +417,7 @@ void init_phs_gpu (int n_channels, mapping_t *map_h) {
       set_mass_sum (c, map_h[c].mass_sum, ROOT_BRANCH);
    }
    _init_mappings<<<1,1>>>(n_channels);
+   cudaDeviceSynchronize();
 
    int *tmp;
    cudaMalloc((void**)&tmp, N_BRANCHES * sizeof(int));
@@ -1584,12 +1585,37 @@ __global__ void _boost_to_lab_frame (size_t N, double *E1, double *E2, double *p
    }
 }
 
-static double *prt_d = NULL;
+static double *prt_in_d = NULL;
+static double *prt_out_d = NULL;
 
 void reset_phs () {
   free (flv_masses); flv_masses = NULL;
   free (flv_widths); flv_widths = NULL;
-  cudaFree (prt_d); prt_d = NULL;
+  cudaFree (prt_in_d); prt_in_d = NULL;
+  cudaFree (prt_out_d); prt_out_d = NULL;
+}
+
+void compute_memory_estimate () {
+}
+
+__global__ void set_sqrts_kernel (size_t N, double *E1, double *E2, double *sqrts_d) {
+   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
+   if (tid >= N) return;
+   sqrts_d[tid] = 2 * sqrt(E1[tid]*E2[tid]);
+}
+
+void set_sqrts_d (size_t n_events, double *E1, double *E2, double *sqrts_d) {
+   double *E1_d, *E2_d;
+   cudaMalloc((void**)&E1_d, n_events * sizeof(double));
+   cudaMalloc((void**)&E2_d, n_events * sizeof(double));
+   cudaMemcpy(E1_d, E1, n_events * sizeof(double), cudaMemcpyHostToDevice);
+   cudaMemcpy(E2_d, E2, n_events * sizeof(double), cudaMemcpyHostToDevice);
+
+   int nt = 1024;
+   int nb = n_events / nt + 1;
+   set_sqrts_kernel<<<nb,nt>>>(n_events, E1_d, E2_d, sqrts_d);
+   cudaFree(E1_d);
+   cudaFree(E2_d);
 }
 
 void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t n_events, 
@@ -1615,8 +1641,24 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
    cudaMemcpy(cmds_boost_o_d, cmd_boost_o, BOOST_O_STRIDE * n_channels * N_LAMBDA_IN * sizeof(int), cudaMemcpyHostToDevice);
    cudaMemcpy(cmds_boost_t_d, cmd_boost_t, 3 * n_channels * N_LAMBDA_OUT * sizeof(int), cudaMemcpyHostToDevice);
 
-   if (prt_d == NULL) cudaMalloc((void**)&prt_d, N_PRT * n_events * 4 * sizeof(double));
-   cudaMemset(prt_d, 0, N_PRT * n_events * 4 * sizeof(double));
+   if (prt_in_d != NULL) {
+      cudaFree(prt_in_d);
+      prt_in_d = NULL;
+   }
+   if (prt_in_d == NULL) {
+       cudaMalloc((void**)&prt_in_d, n_events * 2 * sizeof(double));
+       cudaMemcpy (prt_in_d, E1_in, n_events * sizeof(double), cudaMemcpyHostToDevice);
+       cudaMemcpy (prt_in_d + n_events, E2_in, n_events * sizeof(double), cudaMemcpyHostToDevice);
+   }
+
+   if (prt_out_d != NULL) {
+      cudaFree(prt_out_d);
+      prt_out_d = NULL;
+   }
+   if (prt_out_d == NULL) {
+       cudaMalloc((void**)&prt_out_d, N_PRT * n_events * 4 * sizeof(double));
+   }
+   cudaMemset(prt_out_d, 0, N_PRT * n_events * 4 * sizeof(double));
 
    double *msq_d;
    cudaMalloc((void**)&msq_d, N_BRANCHES * n_events * sizeof(double)); 
@@ -1742,7 +1784,7 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
    nb = n_events / nt  + 1;
    START_TIMER(TIME_KERNEL_AB);
    _apply_boost_targets<<<nb,nt>>> (n_events, channels_d, cmds_boost_t_d, N_LAMBDA_OUT, i_gather_d,
-                                    Ld, msq_d, p_decay, prt_d);
+                                    Ld, msq_d, p_decay, prt_out_d);
 
    cudaDeviceSynchronize();
    STOP_TIMER(TIME_KERNEL_AB);
@@ -1762,7 +1804,7 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
       cudaMemset (st_d, 0, N_BOOSTS * n_events * sizeof(double));
       for (int c = 0; c < n_channels; c++) {
          _reset_x<<<1,1>>> (xc, n_events);
-         _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, i_gather_d, prt_d, msq_d);
+         _combine_particles<<<nb,nt>>>(n_events, c, channels_d, cmds_msq_d, N_BRANCHES_INTERNAL, i_gather_d, prt_out_d, msq_d);
          _init_f<<<nb,nt>>>(n_events, local_factors_d);
          cudaDeviceSynchronize();
          _apply_msq_inv<<<nb,nt>>>(n_events, c, xc, msq_d, sqrts_d, channels_d, cmds_msq_d,
@@ -1772,12 +1814,12 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
          _create_boosts_inv_firststep_wo_friends<<<nb,nt>>> (n_events, sqrts_d, c, channels_d, xc,
                                                         phi_d, ct_d, st_d,
                                                         cmds_boost_o_d, N_LAMBDA_IN, cmds_boost_t_d, N_LAMBDA_OUT,
-                                                        msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+                                                        msq_d, p_decay, prt_out_d, i_gather_d, Ld, local_factors_d);
          cudaDeviceSynchronize();
          _create_boosts_inv_firststep_with_friends<<<nb,nt>>> (n_events, sqrts_d, c, channels_d, xc,
                                                         phi_d, ct_d, st_d,
                                                         cmds_boost_o_d, N_LAMBDA_IN, cmds_boost_t_d, N_LAMBDA_OUT,
-                                                        msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+                                                        msq_d, p_decay, prt_out_d, i_gather_d, Ld, local_factors_d);
 
          cudaDeviceSynchronize();
          for (int cc = 1; cc < N_LAMBDA_IN; cc++) {
@@ -1785,13 +1827,13 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
                                                            phi_d, ct_d, st_d,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
                                                            cmds_boost_t_d, N_LAMBDA_OUT,
-                                                           msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+                                                           msq_d, p_decay, prt_out_d, i_gather_d, Ld, local_factors_d);
             cudaDeviceSynchronize();
             _create_boosts_inv_step_with_friends<<<nb*2,nt/2>>> (n_events, sqrts_d, c, channels_d, cc, xc,
                                                            phi_d, ct_d, st_d,
                                                            cmds_boost_o_d, N_LAMBDA_IN,
                                                            cmds_boost_t_d, N_LAMBDA_OUT,
-                                                           msq_d, p_decay, prt_d, i_gather_d, Ld, local_factors_d);
+                                                           msq_d, p_decay, prt_out_d, i_gather_d, Ld, local_factors_d);
 
             cudaDeviceSynchronize();
          }
@@ -1809,13 +1851,13 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
    cudaDeviceSynchronize();
    nt = 1024;
    nb = n_events / nt  + 1;
-   _boost_to_lab_frame<<<nb,nt>>>(n_events, E1_d, E2_d, prt_d);
+   _boost_to_lab_frame<<<nb,nt>>>(n_events, E1_d, E2_d, prt_out_d);
    cudaDeviceSynchronize();
    
    START_TIMER(TIME_MEMCPY_OUT);
    // This can also be done on the device, primarily to avoid large temporary arrays.
    double *copy = (double*)malloc(4 * N_PRT * n_events * sizeof(double));
-   cudaMemcpy (copy, prt_d, 4 * N_PRT * n_events * sizeof(double), cudaMemcpyDeviceToHost);
+   cudaMemcpy (copy, prt_out_d, 4 * N_PRT * n_events * sizeof(double), cudaMemcpyDeviceToHost);
    for (size_t i = 0; i < n_events; i++) {
       int idx = 1;
       for (int j = 0; j < N_EXT_OUT; j++) {
@@ -1867,10 +1909,10 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
    cudaFree(cmds_boost_o_d);
    cudaFree(cmds_boost_t_d);
    if (for_whizard) {
-       //p_transfer_to_whizard = prt_d;  
-       ///set_transfer_to_whizard<<<1,1>>>(prt_d);
+       //p_transfer_to_whizard = prt_out_d;  
+       ///set_transfer_to_whizard<<<1,1>>>(prt_out_d);
    } else {
-       cudaFree(prt_d);
+       cudaFree(prt_out_d);
    }
    cudaFree(msq_d);
    cudaFree(p_decay);
@@ -1889,5 +1931,11 @@ void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t 
 }
 
 double *get_momentum_device_pointer () {
-   return prt_d;
+   return prt_out_d;
+}
+
+double *get_in_momentum_device_pointer () {
+   return prt_in_d;
+}
+
 }
