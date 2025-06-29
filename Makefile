@@ -8,8 +8,9 @@ LD=$(NVCC)
 CXXFLAGS=-fPIC
 NVCCFLAGS=-res-usage -Xcompiler -fPIC
 FFLAGS=-fPIC -ffree-line-length-0
+CUDA_HOME=/usr/local/cuda-12.1
 
-INC=-I./external/include -I/usr/local/cuda-12.1/include
+INC=-I./external/include -I$(CUDA_HOME)/include
 
 bin_sources = main.o \
               file_input.o \
@@ -35,10 +36,10 @@ lib_sources = monitoring.o \
 	$(FC) $(FCFLAGS) -c $<
 
 phs.x: $(bin_sources)
-	$(LD) $^ -o $@ -L/usr/local/cuda-12.1/lib -lcudart
+	$(LD) $^ -o $@ -L$(CUDA_HOME)/lib -lcudart
 
 libphs.so: $(lib_sources)
-	g++ -shared $^ -L/usr/local/cuda-12.1/lib64 -lcudart -o $@
+	g++ -shared $^ -L$(CUDA_HOME)/lib64 -lcudart -o $@
 		
 all: phs.x libphs.so gpu_phs_whizard_interface.mod
 
