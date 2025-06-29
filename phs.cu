@@ -37,6 +37,9 @@ int *cmd_msq = NULL;
 int *cmd_boost_o = NULL;
 int *cmd_boost_t = NULL;
 
+static double *prt_in_d = NULL;
+static double *prt_out_d = NULL;
+
 #define BOOST_O_STRIDE 4
 
 template <typename T> void cudaMemcpyMaskedH2D (size_t N, int *idx, T *field_d, T *field_h) {
@@ -1261,9 +1264,6 @@ __global__ void _boost_to_lab_frame (size_t N, double *E1, double *E2, double *p
       idx *= 2;
    }
 }
-
-static double *prt_in_d = NULL;
-static double *prt_out_d = NULL;
 
 void reset_phs () {
   free (flv_masses); flv_masses = NULL;
