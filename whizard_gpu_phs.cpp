@@ -107,6 +107,10 @@ extern "C" void c_whizard_init_gpu_phs () {
    init_phs_gpu (N_CHANNELS, mappings_host);
 }
 
+extern "C" void c_whizard_finalize_gpu_phs () {
+   finalize_phs_gpu (N_CHANNELS);
+}
+
 extern "C" void c_whizard_gen_phs_from_x_gpu (double *E1_in, double *E2_in, bool *requires_boost_to_lab, 
                                               int *n_events, int *n_channels, int *n_x, double *x,
                                               double *factors, double *volumes, bool *oks,

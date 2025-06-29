@@ -55,6 +55,7 @@ int search_in_igather (int c, int x);
 void init_mapping_constants_cpu (int n_channels, double sqrts);
 void set_mappings (int channel);
 void init_phs_gpu (int n_channels, mapping_t *map_h);
+void finalize_phs_gpu (int n_channels);
 void reset_phs ();
 
 void gen_phs_from_x_gpu (bool for_whizard, double *E1_in, double *E2_in, size_t n_events, 

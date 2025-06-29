@@ -508,6 +508,41 @@ void init_phs_gpu (int n_channels, mapping_t *map_h) {
   }
 }
 
+void finalize_phs_gpu (int n_channels) {
+   for (int c = 0; c < n_channels; c++) {
+      free(i_gather[c]);
+      free(i_scatter[c]);
+      free(daughters1[c]);
+      free(daughters2[c]);
+      free(has_children[c]);
+      free(friends[c]);
+   } 
+   free(i_gather);
+   free(i_scatter);
+   free(daughters1);
+   free(daughters2);
+   free(has_children);
+   free(friends);
+   free(cmd_msq); 
+   free(cmd_boost_o);
+   free(cmd_boost_t);
+
+   for (int c = 0; c < n_channels; c++) {
+      free(mappings_host[c].map_id);
+      free(mappings_host[c].a);
+      free(mappings_host[c].b);
+      free(mappings_host[c].masses);
+      free(mappings_host[c].widths);
+      free(mappings_host[c].mass_sum);
+   } 
+   free(mappings_host);
+
+   free (flv_masses); flv_masses = NULL;
+   free (flv_widths); flv_widths = NULL;
+   cudaFree (prt_in_d); prt_in_d = NULL;
+   cudaFree (prt_out_d); prt_out_d = NULL;
+}
+
 __global__ void _init_msq (size_t N, int n_channels, int *channels,
                            int *i_gather, double *flv_masses, double *msq) {
   size_t tid = threadIdx.x + blockDim.x * blockIdx.x;
